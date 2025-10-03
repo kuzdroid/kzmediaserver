@@ -1,15 +1,11 @@
 {
   "name": "kzmediaserver",
   "version": "1.0.0",
-  "description": "Render için Node.js Express sunucusu (HTML server.js içinde)",
+  "description": "Tek dosyalık Node.js sunucusu (Render uyumlu)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "dependencies": {
-    "express": "^4.19.2",
-    "pg": "^8.12.0",
-    "dotenv": "^16.4.5" 
-  },
+  "dependencies": {},
   "license": "ISC" 
 }
