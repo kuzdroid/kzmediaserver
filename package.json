@@ -1,0 +1,9 @@
+{
+  "name": "kzmedia",
+  "version": "1.0.0",
+  "description": "KZMedia tek dosya Node.js server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
