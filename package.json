@@ -4,6 +4,7 @@
   "description": "Render için temel Node.js sunucusu",
   "main": "server.js",
   "scripts": {
+    "build": "echo 'No build step required'", 
     "start": "node server.js"
   },
   "dependencies": {
