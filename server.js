@@ -1,12 +1,12 @@
-// Node.js'in CommonJS yapısına geçiş yapıldı: "import http from 'http';" yerine
+// Node.js'in yerleşik http modülünü CommonJS (require) ile dahil et
 const http = require('http'); 
 
-// PORT ortam değişkenini al (Render/Railway/Vercel gibi ortamlarda otomatik verilir)
+// Render'dan gelen PORT ortam değişkenini kullan, yoksa 8080 varsay
 const PORT = process.env.PORT || 8080;
 
 // *** DİKKAT ***
-// Aşağıdaki html değişkeni, kullanıcının verdiği HTML'i HİÇ DEĞİŞTİRMEDEN içerir.
-// Bu string doğrudan aynen döndürülür.
+// HTML içeriğiniz burada bir JavaScript template string'i olarak tanımlanır.
+// Bu kısım HİÇ DEĞİŞTİRİLMEMİŞTİR.
 const html = `<!doctype html>
 <html lang="tr">
 <head>
@@ -319,6 +319,19 @@ const server = http.createServer((req, res) => {
   res.end(html);
 });
 
-server.listen(PORT, () => {
+// Port dinleme başlar ve olası hataları yakalar (Exited with status 1'i çözer)
+server.listen(PORT, (err) => {
+  if (err) {
+    console.error(`❌ KRİTİK HATA: Port ${PORT} Dinlenemedi!`, err.message);
+    // Sunucuyu kapat, hata kodunu loga yazdır
+    process.exit(1); 
+    return;
+  }
   console.log(`KZMedia sunucusu ayakta: http://localhost:${PORT} ✅`);
+});
+
+// Port dinleme dışında kalan genel hataları yakalar
+server.on('error', (e) => {
+  console.error(`❌ SUNUCU GENEL HATASI:`, e.message);
+  process.exit(1);
 });
