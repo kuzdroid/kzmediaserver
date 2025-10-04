@@ -1,5 +1,4 @@
 {
-{
   "name": "kzmedia-simple",
   "version": "1.0.0",
   "description": "KZMedia simple server without Mongo",
