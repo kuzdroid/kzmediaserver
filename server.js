@@ -1,9 +1,9 @@
-// KZMedia - Production Backend (TEK MONGO_URL ile)
+// KZMedia - Production Backend (TEK MONGO_URL ile, bcryptjs kullanır)
 // ENV: MONGO_URL, JWT_KEY (opsiyonel), PORT (Render verir), DB_NAME (opsiyonel)
 
 const express = require("express");
 const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs"); // <-- bcrypt yerine bcryptjs
 const jwt = require("jsonwebtoken");
 const helmet = require("helmet");
 const cors = require("cors");
@@ -223,7 +223,6 @@ app.delete("/api/posts/:id", requireAuth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id).populate("author", "_id");
     if (!post) return res.status(404).json({ error: "Gönderi bulunamadı" });
-
     const isAuthor = String(post.author._id) === String(req.userId);
     const admin = await isAdmin(req.userId);
     if (!isAuthor && !admin) return res.status(403).json({ error: "Yetki yok" });
