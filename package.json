@@ -1,12 +1,17 @@
 {
-  "name": "kzmedia-simple",
+  "name": "kzmedia",
   "version": "1.0.0",
-  "description": "KZMedia simple server without Mongo",
+  "description": "KZMedia social media app with MongoDB",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "mongoose": "^7.6.3",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0"
   }
 }
