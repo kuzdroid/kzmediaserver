@@ -1,12 +1,12 @@
 {
   "name": "kzmedia",
   "version": "1.0.0",
-  "description": "KZMedia tek dosya Node.js server (Render uyumlu)",
+  "description": "KZMedia sosyal medya demo",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "dependencies": {
+    "express": "^4.19.2"
+  }
 }
