@@ -1,14 +1,16 @@
+<!doctype html>
+<html lang="tr">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>KZMedia • Render Uyumlu</title>
+<title>KZMedia • Tek Dosya (Yerel Demo)</title>
 <style>
 :root{--bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;--primary:#4f8cff;--accent:#64d2ff;--danger:#ff5c74;--border:#212532}
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
 .header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border)}
 .container{max-width:1100px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:12px}
-@media(min-width:900px){.container{grid-template-columns:1fr 320px}}
+@media(min-width:900px){.container{grid-template-columns:1fr 360px}}
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
 input,textarea,select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:var(--text);outline:none}
 button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
@@ -22,50 +24,53 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
 .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .notice{padding:8px;border-radius:8px;background:#122;color:#9fdf;margin-top:8px}
 .admin-badge{background:#222;border-radius:6px;padding:4px 8px;font-size:12px;color:var(--accent)}
-.row{display:flex;gap:8px;align-items:center;margin-top:4px}
+.row{display:flex;gap:8px;align-items:center;margin-top:6px}
 .field-inline{flex:1}
 .footer{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
 .small-muted{font-size:12px;color:var(--muted)}
-.user-row button{padding:4px 8px;font-size:12px;}
+.user-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px dashed var(--border)}
+.user-row:first-child{border-top:none}
+.user-row .left{display:flex;gap:8px;align-items:center}
+.user-row button{padding:6px 8px;font-size:13px}
+.inline-small{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
 <div class="header">
   <div style="font-weight:800">KZMedia</div>
-  <div class="small-muted">Tam demo (yerel). Veriler localStorage'da.</div>
+  <div class="small-muted">Yerel demo — veriler localStorage'da. (Örnek kullanıcılar hazır)</div>
 </div>
+
 <main class="container">
-    <section class="card">
+  <!-- Sol: Akış ve Paylaşım -->
+  <section class="card">
     <div id="topArea">
       <div id="authBox">
         <h3>Giriş / Kayıt</h3>
         <div class="row">
-          <input id="txtUser" placeholder="Kullanıcı adı (boş olamaz)" class="field-inline">
+          <input id="txtUser" placeholder="Kullanıcı adı (ör. kursatomer@KUZİLER)" class="field-inline">
           <input id="txtPass" placeholder="Şifre" class="field-inline" type="password">
         </div>
-        <div class="row" style="margin-top:8px">
+        <div class="row">
           <button id="btnRegister" class="btn-primary">Kayıt Ol</button>
           <button id="btnLogin">Giriş</button>
         </div>
-        <div class="small-muted" style="margin-top:8px">
-          Sahip kodu (owner key) yerel olarak <code>OWNER_CODE</code> ile kontrol edilir. Varsayılan: "0".
-        </div>
+        <div class="small-muted" style="margin-top:8px">Sistemde hazır kullanıcılar var: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER</div>
       </div>
+
       <div id="composeBox" style="display:none;margin-top:12px">
         <h3>Paylaş</h3>
         <textarea id="postText" rows="3" placeholder="Ne paylaşmak istersin?"></textarea>
         <input id="postImage" placeholder="Resim URL (opsiyonel)">
         <input id="postVideo" placeholder="Video URL (opsiyonel)">
-        <label style="display:block;margin-top:6px">
-          <input id="postPrivate" type="checkbox"> 
-          <span class="small">@kuzilerözel (yalnızca @KUZILER üyeleri görebilir)</span>
-        </label>
+        <label style="display:block;margin-top:6px"><input id="postPrivate" type="checkbox"> <span class="small">@kuzilerözel (yalnızca @KUZİLER üyeleri görebilir)</span></label>
         <div class="controls">
           <button id="btnPost" class="btn-primary">Paylaş</button>
           <button id="btnRefresh">Yenile</button>
         </div>
       </div>
     </div>
+
     <hr>
     <h3>Akış</h3>
     <div id="feed" class="feed"></div>
@@ -73,71 +78,123 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
     <div class="footer">KZMedia • Yerel demo</div>
   </section>
 
-    <aside class="card">
+  <!-- Sağ: Profil / Admin / Yönetim -->
+  <aside class="card">
     <div>
       <div class="small">Şu anki kullanıcı: <strong id="meName">—</strong> <span id="meBadge"></span></div>
       <div class="small-muted" style="margin-top:6px">Takipçi: <strong id="meFollowers">0</strong></div>
       <div style="margin-top:8px" id="authButtons"></div>
     </div>
+
     <hr>
+
+    <div>
+      <h4>Arama / Filtre</h4>
+      <input id="q" placeholder="Metinde ara...">
+      <div class="row" style="margin-top:8px">
+        <button id="btnSearch">Ara</button>
+        <button id="btnClear" style="margin-left:8px">Temizle</button>
+      </div>
+    </div>
+
+    <hr>
+
     <div id="adminPanel" style="display:none">
       <h4>Admin Paneli</h4>
-      <div class="small-muted">Burada adminler duyuru (ilan), kullanıcı rolleri ve takipçi sayısını düzenleyebilir. Ayrıca kullanıcıları admin yapabilirsiniz.</div>
+      <div class="small-muted">Sadece ADMIN görüyor. Kursatomer özel yetkilere sahip (troll avantajları).</div>
+
       <div style="margin-top:8px">
         <label>Duyuru / İlan (tek tane)</label>
         <textarea id="adminAd" rows="3" placeholder="Kısa ilan/duyuru"></textarea>
-        <div style="margin-top:8px" class="row">
+        <div class="row" style="margin-top:8px">
           <button id="btnSaveAd" class="btn-primary">Duyuruyu Kaydet</button>
           <button id="btnClearAd">Temizle</button>
         </div>
       </div>
+
       <hr>
+
       <div>
         <h4>Kullanıcıları Yönet</h4>
         <div id="userList"></div>
       </div>
+
       <hr>
+
       <div>
         <label>Kullanıcı takipçi sayısını değiştir</label>
         <div class="row" style="margin-top:6px">
-          <input id="adminUserFollowers" placeholder="kullaniciadi" class="field-inline">
-          <input id="adminFollowerCount" placeholder="yeni sayı" style="width:90px">
+          <input id="adminUserFollowers" placeholder="kullaniciadi@KUZİLER" class="field-inline">
+          <input id="adminFollowerCount" placeholder="yeni sayı (ör. 42 veya ∞ için INF)" style="width:90px">
         </div>
         <div style="margin-top:8px">
           <button id="btnSetFollowers" class="btn-primary">Uygula</button>
         </div>
       </div>
     </div>
+
     <div id="adBox" style="margin-top:12px"></div>
   </aside>
 </main>
 
 <script>
-const OWNER_CODE = "0"; // owner kodu
+/*
+  Tek dosya KZMedia — güncellenmiş.
+  Hazır kullanıcılar (kullanici:şifre):
+    - kursatomer@KUZİLER  : KUZİLER    (ADMIN, troll avantajları, followers = Infinity)
+    - elalye@KUZİLER      : KZTeknik   (KUZILER member)
+    - sena@KUZİLER        : KZResim    (KUZILER member)
+    - MR.Selim@KUZİLER    : KZYTB      (KUZILER member)
+
+  Not: localStorage anahtarı = 'KZMedia.data'
+*/
+
+const OWNER_CODE = "0"; // istersen owner kodunu kullanabilirsin (kayıt için)
+const INF = "∞";
+
 let DATA = loadData();
-const $ = id=>document.getElementById(id);
+const $ = id => document.getElementById(id);
+
+// Eğer başlangıçta kullanıcılar yoksa hazırla
+(function ensureDefaults(){
+  if(!DATA.users) DATA.users = {};
+  // add default users if not exist
+  const defaults = {
+    "kursatomer@KUZİLER": { pass: "KUZİLER", roles: ["ADMIN","KUZILER"], followers: Infinity },
+    "elalye@KUZİLER":     { pass: "KZTeknik", roles: ["KUZILER"], followers: 100 },
+    "sena@KUZİLER":       { pass: "KZResim", roles: ["KUZILER"], followers: 80 },
+    "MR.Selim@KUZİLER":   { pass: "KZYTB", roles: ["KUZILER"], followers: 50 }
+  };
+  for(const k in defaults){
+    if(!DATA.users[k]) DATA.users[k] = defaults[k];
+  }
+  if(!DATA.posts) DATA.posts = [];
+  if(DATA.ad===undefined) DATA.ad = "";
+  saveData();
+})();
 
 function loadData(){
   const raw = localStorage.getItem('KZMedia.data');
   if(!raw) return { users:{}, posts:[], ad:"" };
-  try{ return JSON.parse(raw);}catch(e){return { users:{}, posts:[], ad:"" };}
+  try{ return JSON.parse(raw); }catch(e){ return { users:{}, posts:[], ad:"" }; }
 }
+function saveData(){ localStorage.setItem('KZMedia.data', JSON.stringify(DATA)); }
 
-function saveData(){ localStorage.setItem('KZMedia.data',JSON.stringify(DATA)); }
 function setMe(name){
   if(!name){
-    window._ME=null;
-    $('meName').textContent='—';
-    $('meBadge').textContent='';
-    $('meFollowers').textContent='0';
-  }else{
-    window._ME={name};
+    window._ME = null;
+    $('meName').textContent = '—';
+    $('meBadge').textContent = '';
+    $('meFollowers').textContent = '0';
+  } else {
+    window._ME = { name };
     const u = DATA.users[name];
     const isAdmin = u.roles && u.roles.indexOf('ADMIN')>=0;
     const isK = u.roles && u.roles.indexOf('KUZILER')>=0;
-    $('meName').textContent=name;
-    $('meBadge').textContent= isAdmin ? ' <span class="admin-badge">ADMIN</span>' : (isK ? ' <span class="small-muted">@KUZILER</span>' : '');
-    $('meFollowers').textContent=u.followers||0;
+    $('meName').textContent = name;
+    $('meBadge').innerHTML = isAdmin ? '<span class="admin-badge">ADMIN</span>' : (isK ? '<span class="small-muted">@KUZILER</span>' : '');
+    const f = u.followers === Infinity ? INF : (u.followers || 0);
+    $('meFollowers').textContent = f;
   }
   renderAuthUI();
   loadFeed();
@@ -153,58 +210,61 @@ function renderAuthUI(){
   const meName = window._ME?.name;
   if(meName && DATA.users[meName] && DATA.users[meName].roles && DATA.users[meName].roles.indexOf('ADMIN')>=0){
     $('adminPanel').style.display='block';
-  }else{
+  } else {
     $('adminPanel').style.display='none';
   }
 }
 
-// --- Register / Login
-$('btnRegister').addEventListener('click',()=>{
+// Register / Login
+$('btnRegister').addEventListener('click', ()=>{
   const name = $('txtUser').value.trim();
   const pass = $('txtPass').value;
-  if(!name){ alert('Kullanıcı adı girin'); return;}
-  if(DATA.users[name]){ alert('Bu kullanıcı adı zaten var'); return;}
-  DATA.users[name]={ pass:pass||'', roles:[], followers:0 };
-  if(pass===OWNER_CODE){ DATA.users[name].roles.push('ADMIN'); DATA.users[name].roles.push('KUZILER'); }
+  if(!name){ alert('Kullanıcı adı girin'); return; }
+  if(DATA.users[name]){ alert('Bu kullanıcı adı zaten var'); return; }
+  DATA.users[name] = { pass: pass||'', roles: [], followers: 0 };
+  // owner kodu ile ilk kayıt admin olabilir
+  if(pass === OWNER_CODE){ DATA.users[name].roles.push('ADMIN'); DATA.users[name].roles.push('KUZILER'); }
   saveData();
   alert('Kayıt tamam. Giriş yapabilirsiniz.');
 });
 
-$('btnLogin').addEventListener('click',()=>{
+$('btnLogin').addEventListener('click', ()=>{
   const name = $('txtUser').value.trim();
   const pass = $('txtPass').value;
-  if(!name){ alert('Kullanıcı adı girin'); return;}
+  if(!name){ alert('Kullanıcı adı girin'); return; }
   const u = DATA.users[name];
-  if(!u){ alert('Kullanıcı bulunamadı. Kayıt olun.'); return;}
-  if(u.pass!==pass){ alert('Şifre yanlış'); return;}
+  if(!u){ alert('Kullanıcı bulunamadı. Kayıt olun.'); return; }
+  if(u.pass !== pass){ alert('Şifre yanlış'); return; }
   setMe(name);
 });
 
-// logout / profil
+// logout / profile buttons
 function addAuthButtons(){
-  const box=$('authButtons'); box.innerHTML='';
+  const box = $('authButtons'); box.innerHTML = '';
   if(window._ME){
-    const btnLogout=document.createElement('button'); btnLogout.textContent='Çıkış';
-    btnLogout.onclick=()=>setMe(null);
-    const btnProfile=document.createElement('button'); btnProfile.textContent='Profilim';
-    btnProfile.onclick=()=>alert('Profil: '+window._ME.name);
+    const btnProfile = document.createElement('button'); btnProfile.textContent = 'Profilim';
+    btnProfile.onclick = ()=> alert('Profil: ' + window._ME.name);
+    const btnLogout = document.createElement('button'); btnLogout.textContent = 'Çıkış';
+    btnLogout.onclick = ()=> setMe(null);
     box.appendChild(btnProfile); box.appendChild(btnLogout);
   }
 }
 
-// --- Posts
-$('btnPost').addEventListener('click',()=>{
-  if(!window._ME){ alert('Önce giriş yapın'); return;}
+// Posts
+$('btnPost').addEventListener('click', ()=>{
+  if(!window._ME){ alert('Önce giriş yapın'); return; }
   const text = $('postText').value.trim();
-  if(!text){ alert('Metin boş olamaz'); return;}
-  const p={ id:Date.now().toString(36)+Math.random().toString(36).slice(2,8),
-            author:window._ME.name,
-            text,
-            imageUrl:$('postImage').value.trim()||null,
-            videoUrl:$('postVideo').value.trim()||null,
-            private:!!$('postPrivate').checked,
-            likes:0,
-            createdAt:Date.now() };
+  if(!text){ alert('Metin boş olamaz'); return; }
+  const p = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,8),
+    author: window._ME.name,
+    text,
+    imageUrl: $('postImage').value.trim() || null,
+    videoUrl: $('postVideo').value.trim() || null,
+    private: !!$('postPrivate').checked,
+    likes: 0,
+    createdAt: Date.now()
+  };
   DATA.posts.push(p);
   saveData();
   $('postText').value=''; $('postImage').value=''; $('postVideo').value=''; $('postPrivate').checked=false;
@@ -212,21 +272,21 @@ $('btnPost').addEventListener('click',()=>{
 });
 
 function loadFeed(){
-  const feed = $('feed'); feed.innerHTML='';
-  const q = $('q')?.value.trim().toLowerCase()||'';
+  const feed = $('feed'); feed.innerHTML = '';
+  const q = $('q')?.value.trim().toLowerCase() || '';
   const list = (DATA.posts||[]).slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  let shown=0;
+  let shown = 0;
   for(const p of list){
     if(p.private){
-      const me=window._ME?DATA.users[window._ME.name]:null;
+      const me = window._ME ? DATA.users[window._ME.name] : null;
       const isMember = me && me.roles && me.roles.indexOf('KUZILER')>=0;
-      if(!isMember && !(window._ME && window._ME.name===p.author)) continue;
+      if(!isMember && !(window._ME && window._ME.name === p.author)) continue;
     }
     if(q && !((p.text||'').toLowerCase().includes(q) || (p.author||'').toLowerCase().includes(q))) continue;
-    const div=document.createElement('div'); div.className='post';
+    const div = document.createElement('div'); div.className = 'post';
     const isAdmin = window._ME && DATA.users[window._ME.name] && DATA.users[window._ME.name].roles && DATA.users[window._ME.name].roles.indexOf('ADMIN')>=0;
-    const canEdit = window._ME && (window._ME.name===p.author || isAdmin);
-    const tag = (DATA.users[p.author] && DATA.users[p.author].roles && DATA.users[p.author].roles.indexOf('KUZILER')>=0) ? '<span class="tag">@KUZILER</span>':'';
+    const canEdit = window._ME && (window._ME.name === p.author || isAdmin);
+    const tag = (DATA.users[p.author] && DATA.users[p.author].roles && DATA.users[p.author].roles.indexOf('KUZILER')>=0) ? '<span class="tag">@KUZILER</span>' : '';
     div.innerHTML = `<div class="meta"><div class="who">${escapeHtml(p.author)} ${tag}</div><div class="small">${new Date(p.createdAt).toLocaleString()}</div></div>
                      <div>${escapeHtml(p.text)}</div>
                      ${p.imageUrl?`<div><img src="${escapeHtml(p.imageUrl)}" alt=""></div>`:''}
@@ -238,65 +298,125 @@ function loadFeed(){
                      </div>`;
     feed.appendChild(div);
     shown++;
-    div.querySelector('.btn-like')?.addEventListener('click',()=>{ p.likes=(p.likes||0)+1; saveData(); loadFeed(); });
+    div.querySelector('.btn-like')?.addEventListener('click', ()=>{ p.likes=(p.likes||0)+1; saveData(); loadFeed(); });
     if(canEdit){
-      div.querySelector('.btn-edit')?.addEventListener('click',()=>{ const newText=prompt('Yeni metin:',p.text); if(newText!==null){ p.text=newText; saveData(); loadFeed(); }});
-      div.querySelector('.btn-del')?.addEventListener('click',()=>{ if(confirm('Gönderiyi silmek istiyor musunuz?')){ DATA.posts=DATA.posts.filter(x=>x.id!==p.id); saveData(); loadFeed(); }});
+      div.querySelector('.btn-edit')?.addEventListener('click', ()=>{ 
+        // kursatomer special: can edit anyone's post; other admins can too
+        if(!(window._ME && (window._ME.name === p.author || (DATA.users[window._ME.name] && DATA.users[window._ME.name].roles.indexOf('ADMIN')>=0)))) return;
+        const newText = prompt('Yeni metin:', p.text);
+        if(newText !== null){ p.text = newText; saveData(); loadFeed(); }
+      });
+      div.querySelector('.btn-del')?.addEventListener('click', ()=>{ 
+        if(!(window._ME && (window._ME.name === p.author || (DATA.users[window._ME.name] && DATA.users[window._ME.name].roles.indexOf('ADMIN')>=0)))) return;
+        if(confirm('Gönderiyi silmek istiyor musunuz?')){ DATA.posts = DATA.posts.filter(x=>x.id!==p.id); saveData(); loadFeed(); }
+      });
     }
   }
-  $('empty').style.display=shown?'none':'block';
+  $('empty').style.display = shown ? 'none' : 'block';
 }
 
-function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[c]);}
+function escapeHtml(s=''){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
-// --- Admin Actions
-$('btnSaveAd')?.addEventListener('click',()=>{ if(!checkAdmin()) return; DATA.ad=$('adminAd').value.trim(); saveData(); renderAd(); alert('Duyuru kaydedildi'); });
-$('btnClearAd')?.addEventListener('click',()=>{ if(!checkAdmin()) return; DATA.ad=''; saveData(); renderAd(); });
+// Admin actions
+$('btnSaveAd')?.addEventListener('click', ()=>{ if(!checkAdmin()) return; DATA.ad = $('adminAd').value.trim(); saveData(); renderAd(); alert('Duyuru kaydedildi'); });
+$('btnClearAd')?.addEventListener('click', ()=>{ if(!checkAdmin()) return; DATA.ad = ''; saveData(); renderAd(); });
 
-// --- Set followers
-$('btnSetFollowers')?.addEventListener('click',()=>{
+$('btnSetFollowers')?.addEventListener('click', ()=>{
   if(!checkAdmin()) return;
-  const name=$('adminUserFollowers').value.trim(); const cnt=parseInt($('adminFollowerCount').value);
+  const name = $('adminUserFollowers').value.trim();
+  let cntRaw = $('adminFollowerCount').value.trim();
   if(!name || !DATA.users[name]) return alert('Kullanıcı bulunamadı');
-  if(Number.isNaN(cnt)) return alert('Geçerli sayı girin');
-  DATA.users[name].followers=cnt; saveData(); alert('Ayar kaydedildi');
-  if(window._ME && window._ME.name===name) setMe(name);
+  if(cntRaw === '∞' || cntRaw.toUpperCase()==='INF') {
+    DATA.users[name].followers = Infinity;
+  } else {
+    const cnt = parseInt(cntRaw);
+    if(Number.isNaN(cnt)) return alert('Geçerli sayı girin');
+    DATA.users[name].followers = cnt;
+  }
+  saveData();
+  alert('Ayar kaydedildi');
+  if(window._ME && window._ME.name === name) setMe(name);
 });
 
-// --- Render ad
-function renderAd(){
-  const box=$('adBox'); box.innerHTML='';
-  if(DATA.ad && DATA.ad.trim()){ const d=document.createElement('div'); d.className='notice'; d.textContent=DATA.ad; box.appendChild(d); }
-}
+// render ad
+function renderAd(){ const box = $('adBox'); box.innerHTML=''; if(DATA.ad && DATA.ad.trim()){ const d = document.createElement('div'); d.className='notice'; d.textContent = DATA.ad; box.appendChild(d); } }
 
-// --- Check admin
-function checkAdmin(){ const me=window._ME && DATA.users[window._ME.name]; if(!me || !me.roles || me.roles.indexOf('ADMIN')<0){ alert('Sadece adminler yapabilir'); return false;} return true;}
+// check admin
+function checkAdmin(){ const me = window._ME && DATA.users[window._ME.name]; if(!me || !me.roles || me.roles.indexOf('ADMIN')<0){ alert('Sadece adminler yapabilir'); return false; } return true; }
 
-// --- Render users for admin panel
+// render users list in admin panel
 function renderUsers(){
-  const list=$('userList'); if(!list) return;
-  list.innerHTML='';
-  for(const name in DATA.users){
-    const u=DATA.users[name];
-    const div=document.createElement('div'); div.className='row user-row';
-    const isAdmin = u.roles && u.roles.indexOf('ADMIN')>=0;
-    const displayName = isAdmin?name+'@ADMIN':name;
-    div.innerHTML=`<span>${displayName}</span> <button class="btn-primary btn-make-admin">Admin Yap</button>`;
-    div.querySelector('.btn-make-admin').addEventListener('click',()=>{
+  const list = $('userList'); if(!list) return; list.innerHTML = '';
+  // show users sorted: admins first
+  const names = Object.keys(DATA.users).sort((a,b)=>{
+    const aAdmin = DATA.users[a].roles && DATA.users[a].roles.indexOf('ADMIN')>=0;
+    const bAdmin = DATA.users[b].roles && DATA.users[b].roles.indexOf('ADMIN')>=0;
+    return (aAdmin === bAdmin) ? a.localeCompare(b) : (aAdmin ? -1 : 1);
+  });
+  for(const name of names){
+    const u = DATA.users[name];
+    const div = document.createElement('div'); div.className='user-row';
+    const left = document.createElement('div'); left.className='left';
+    const badge = (u.roles && u.roles.indexOf('ADMIN')>=0) ? '<span class="admin-badge">ADMIN</span>' : ((u.roles && u.roles.indexOf('KUZILER')>=0)?'<span class="small-muted">@KUZILER</span>':'');
+    const f = u.followers === Infinity ? INF : (u.followers||0);
+    left.innerHTML = `<div><strong>${name}</strong> ${badge} <div class="inline-small">Takipçi: ${f}</div></div>`;
+    const right = document.createElement('div');
+    // Make Admin button (visible to admins)
+    const btnMakeAdmin = document.createElement('button'); btnMakeAdmin.textContent = 'Admin Yap'; btnMakeAdmin.className='btn-primary';
+    btnMakeAdmin.onclick = ()=>{
       if(!checkAdmin()) return;
-      if(!u.roles) u.roles=[];
+      if(!u.roles) u.roles = [];
       if(u.roles.indexOf('ADMIN')<0) u.roles.push('ADMIN');
-      saveData(); renderUsers(); alert(displayName+' artık admin!');
-    });
+      if(u.roles.indexOf('KUZILER')<0) u.roles.push('KUZILER');
+      saveData(); renderUsers(); alert(name + ' artık ADMIN!');
+    };
+    // Set followers button
+    const btnSetF = document.createElement('button'); btnSetF.textContent = 'Takipçi Ayarla'; btnSetF.onclick = ()=>{
+      if(!checkAdmin()) return;
+      // kursatomer special: can directly set infinite
+      let cur = prompt('Yeni takipçi sayısı (yaz "INF" veya "∞" için sonsuz):', u.followers===Infinity? 'INF' : (u.followers||0));
+      if(cur === null) return;
+      if(cur === '∞' || cur.toUpperCase()==='INF'){ u.followers = Infinity; }
+      else { const n = parseInt(cur); if(Number.isNaN(n)) return alert('Geçerli sayı girin'); u.followers = n; }
+      saveData(); renderUsers();
+    };
+    // Troll action: kursatomer özel (ör: troll => takipçi INF + gösterme mesajı)
+    const btnTroll = document.createElement('button'); btnTroll.textContent = 'TROLL'; btnTroll.className='btn-danger';
+    btnTroll.onclick = ()=>{
+      // only kursatomer can use "TROLL"
+      if(!(window._ME && window._ME.name === 'kursatomer@KUZİLER')){ alert('Sadece kursatomer kullanabilir'); return; }
+      if(!confirm(name + ' kullanıcısına troll işlemi uygula (takipçi => ∞ ve "trollled" notu ekle)?')) return;
+      u.followers = Infinity;
+      // ek opsiyon: kullanıcının adını değiştirme yerine suffix ekle (zaten suffix var)
+      // istersen not ekle
+      if(!u.meta) u.meta = {};
+      u.meta.trolledAt = Date.now();
+      saveData(); renderUsers(); alert(name + ' trollledi (takipçi ∞ oldu).');
+    };
+
+    // If current user is kursatomer or any admin, show Make Admin button; but kursatomer can make admin always (already admin)
+    right.appendChild(btnMakeAdmin);
+    right.appendChild(btnSetF);
+    // show troll button only if current logged in is kursatomer
+    if(window._ME && window._ME.name === 'kursatomer@KUZİLER') right.appendChild(btnTroll);
+    div.appendChild(left); div.appendChild(right);
     list.appendChild(div);
   }
 }
 
-// startup
+// Payment-request / IBAN flow could be added separately (manual).
+// Admin onay is done via this UI (Make Admin button).
+
+// --- Misc UI handlers
+$('btnSearch')?.addEventListener('click', ()=>loadFeed());
+$('btnClear')?.addEventListener('click', ()=>{ $('q').value=''; loadFeed(); });
+$('btnRefresh')?.addEventListener('click', ()=>loadFeed());
+
+// Auto-save / startup
 (function startup(){
-  if(!DATA.users['owner']) DATA.users['owner']={pass:OWNER_CODE,roles:['ADMIN','KUZILER'],followers:0};
   saveData();
   setMe(null);
+  loadFeed();
 })();
 </script>
 </body>
