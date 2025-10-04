@@ -13,13 +13,38 @@ const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const MONGO_URL = process.env.MONGO_URL;
 const JWT_KEY = process.env.JWT_KEY || "change-this-in-render";
 
-// ---------- Security / Middlewares ----------
+// ---------------- Mongo URI Fixer ----------------
+function normalizeMongoUri(input) {
+  if (!input) return "";
+  let uri = String(input).trim();
+
+  // Baş/son tırnaklar ve tüm whitespace karakterlerini temizle
+  uri = uri.replace(/^["']|["']$/g, "");
+  uri = uri.replace(/\s+/g, "");
+
+  // opsiyonel appName parametresini kaldır (sorun çıkarabiliyor)
+  uri = uri.replace(/&appName=[^&]+/i, "");
+
+  // Eğer query yoksa ekle
+  if (!uri.includes("?")) uri += "?retryWrites=true&w=majority";
+
+  // retryWrites bozuksa düzelt
+  uri = uri.replace(/retryWrites=(&|$)/i, "retryWrites=true$1");
+  // Eğer hiç retryWrites yoksa ekle
+  if (!/retryWrites=/i.test(uri)) uri += (uri.includes("?") ? "&" : "?") + "retryWrites=true";
+
+  // w parametresi yoksa ekle
+  if (!/[?&]w=/i.test(uri)) uri += "&w=majority";
+
+  return uri;
+}
+
+// ---------------- Security / Middlewares ----------------
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors()); // gerekirse origin kısıtla: { origin: ["https://senin-site.onrender.com"] }
+app.use(cors()); // Gerekirse: { origin: ["https://senin-site.onrender.com"] }
 app.use(express.json({ limit: "1mb" }));
 
 const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60 });
@@ -27,11 +52,15 @@ const apiLimiter  = rateLimit({ windowMs: 60 * 1000, max: 120 });
 app.use("/api/auth", authLimiter);
 app.use("/api", apiLimiter);
 
-// ---------- Mongo ----------
+// ---------------- Mongo Connect ----------------
+const RAW_MONGO = process.env.MONGO_URL || "";
+const MONGO_URL = normalizeMongoUri(RAW_MONGO);
+
 if (!MONGO_URL) {
   console.error("❌ MONGO_URL yok. Render > Environment'a ekle.");
   process.exit(1);
 }
+
 mongoose
   .connect(MONGO_URL, { dbName: "kzmedia" })
   .then(() => console.log("✅ MongoDB Atlas bağlandı"))
@@ -40,7 +69,7 @@ mongoose
     process.exit(1);
   });
 
-// ---------- Models ----------
+// ---------------- Models ----------------
 const { Schema, model } = mongoose;
 
 const userSchema = new Schema(
@@ -71,7 +100,7 @@ const postSchema = new Schema(
 );
 const Post = model("Post", postSchema);
 
-// ---------- Helpers ----------
+// ---------------- Helpers ----------------
 function signToken(userId) {
   return jwt.sign({ userId }, JWT_KEY, { expiresIn: "7d" });
 }
@@ -96,10 +125,10 @@ async function isKuziler(userId) {
   return !!(u && u.roles && u.roles.includes("KUZILER"));
 }
 
-// ---------- Health ----------
+// ---------------- Health ----------------
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-// ---------- Auth ----------
+// ---------------- Auth ----------------
 app.post("/api/auth/register", async (req, res) => {
   try {
     let { username, email, password, ownerCode } = req.body;
@@ -150,7 +179,7 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
   res.json(u);
 });
 
-// ---------- Posts ----------
+// ---------------- Posts ----------------
 app.post("/api/posts", requireAuth, async (req, res) => {
   try {
     const { text, imageUrl, videoUrl, private: isPrivate } = req.body || {};
@@ -223,11 +252,10 @@ app.delete("/api/posts/:id", requireAuth, async (req, res) => {
   }
 });
 
-// ---------- TROLL Endpoint (kursatomer @ KUZILER) ----------
+// ---------------- TROLL Endpoint (sadece kursatomer @ KUZILER) ----------------
 app.post("/api/troll/:username", requireAuth, async (req, res) => {
   try {
     const me = await User.findById(req.userId);
-    // sadece kursatomer ve KUZILER rolü
     if (!me || me.username !== "kursatomer" || !me.roles.includes("KUZILER")) {
       return res.status(403).json({ error: "Yetkin yok" });
     }
@@ -236,12 +264,9 @@ app.post("/api/troll/:username", requireAuth, async (req, res) => {
     const target = await User.findOne({ username: targetName });
     if (!target) return res.status(404).json({ error: "Kullanıcı bulunamadı" });
 
-    // takipçiyi ∞ yap, meta güncelle
     target.followers = Number.POSITIVE_INFINITY;
     target.meta = target.meta || {};
     target.meta.trolledAt = Date.now();
-
-    // ?ban=1 verilirse ban
     if (req.query.ban === "1") target.meta.banned = true;
 
     await target.save();
@@ -257,13 +282,13 @@ app.post("/api/troll/:username", requireAuth, async (req, res) => {
   }
 });
 
-// ---------- Static (senin index.html) ----------
+// ---------------- Static (senin index.html) ----------------
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html")); // aynı klasördeki index.html'i yollar
 });
 
-// ---------- Start ----------
+// ---------------- Start ----------------
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 KZMedia PROD API ayakta: http://localhost:${PORT} (prod URL'ini kullan)`);
+  console.log(`🚀 KZMedia PROD API ayakta: http://localhost:${PORT} (Render URL'ini kullan)`);
 });
 
