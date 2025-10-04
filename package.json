@@ -1,11 +1,13 @@
 {
-  "name": "kzmediaserver",
+  "name": "kzmedia",
   "version": "1.0.0",
-  "description": "Tek dosyalık Node.js sunucusu (Render uyumlu)",
+  "description": "KZMedia tek dosya Node.js server",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "dependencies": {},
-  "license": "ISC" 
+  "engines": {
+    "node": ">=18"
+  }
 }
