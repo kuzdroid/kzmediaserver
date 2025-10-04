@@ -1,6 +1,7 @@
+
 // KZMedia - Production Backend (Tek Dosya)
-// Stack: Express + Mongoose + JWT + Bcrypt + Helmet + CORS + Rate Limit
-// ENV: MONGO_URL, JWT_KEY, PORT (Render verir), NODE_ENV=production (önerilir)
+// ENV gerekir: MONGO_URL, JWT_KEY  (Render -> Settings -> Environment)
+// Çalışır stack: Express + Mongoose + JWT + Bcrypt + Helmet + CORS + Rate Limit
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -15,36 +16,31 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_KEY = process.env.JWT_KEY || "change-this-in-render";
 
-// ---------------- Mongo URI Fixer ----------------
+// ---------- Mongo URI düzeltici (ENV'deki küçük format hatalarını toparlar)
 function normalizeMongoUri(input) {
   if (!input) return "";
-  let uri = String(input).trim();
+  let raw = String(input).trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "");
 
-  // Baş/son tırnaklar ve tüm whitespace karakterlerini temizle
-  uri = uri.replace(/^["']|["']$/g, "");
-  uri = uri.replace(/\s+/g, "");
+  // base + query ayır
+  const [base, query = ""] = raw.split("?");
+  const params = new URLSearchParams(query);
 
-  // opsiyonel appName parametresini kaldır (sorun çıkarabiliyor)
-  uri = uri.replace(/&appName=[^&]+/i, "");
+  // sorun çıkaran/duplike olabilecekleri temizle
+  params.delete("retryWrites");
+  params.delete("appName");
 
-  // Eğer query yoksa ekle
-  if (!uri.includes("?")) uri += "?retryWrites=true&w=majority";
+  // zorunlu/tekil parametreleri ayarla
+  params.set("retryWrites", "true");
+  if (!params.has("w")) params.set("w", "majority");
 
-  // retryWrites bozuksa düzelt
-  uri = uri.replace(/retryWrites=(&|$)/i, "retryWrites=true$1");
-  // Eğer hiç retryWrites yoksa ekle
-  if (!/retryWrites=/i.test(uri)) uri += (uri.includes("?") ? "&" : "?") + "retryWrites=true";
-
-  // w parametresi yoksa ekle
-  if (!/[?&]w=/i.test(uri)) uri += "&w=majority";
-
-  return uri;
+  const q = params.toString();
+  return q ? `${base}?${q}` : `${base}?retryWrites=true&w=majority`;
 }
 
-// ---------------- Security / Middlewares ----------------
+// ---------- Security / Middleware
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors()); // Gerekirse: { origin: ["https://senin-site.onrender.com"] }
+app.use(cors()); // gerekirse { origin: ["https://senin-site.onrender.com"] }
 app.use(express.json({ limit: "1mb" }));
 
 const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60 });
@@ -52,14 +48,17 @@ const apiLimiter  = rateLimit({ windowMs: 60 * 1000, max: 120 });
 app.use("/api/auth", authLimiter);
 app.use("/api", apiLimiter);
 
-// ---------------- Mongo Connect ----------------
+// ---------- Mongo Connect
 const RAW_MONGO = process.env.MONGO_URL || "";
 const MONGO_URL = normalizeMongoUri(RAW_MONGO);
 
 if (!MONGO_URL) {
-  console.error("❌ MONGO_URL yok. Render > Environment'a ekle.");
+  console.error("❌ MONGO_URL yok. Render > Settings > Environment'a ekle.");
   process.exit(1);
 }
+// (Teşhis için) Kullanıcı adını logla — şifreyi göstermez
+const shownUser = (RAW_MONGO.match(/mongodb\+srv:\/\/([^:]+)/) || [])[1];
+console.log("Mongo user (kontrol):", shownUser || "(bulunamadı)");
 
 mongoose
   .connect(MONGO_URL, { dbName: "kzmedia" })
@@ -69,7 +68,7 @@ mongoose
     process.exit(1);
   });
 
-// ---------------- Models ----------------
+// ---------- Modeller
 const { Schema, model } = mongoose;
 
 const userSchema = new Schema(
@@ -94,13 +93,13 @@ const postSchema = new Schema(
     imageUrl: { type: String, default: "" },
     videoUrl: { type: String, default: "" },
     private:  { type: Boolean, default: false }, // @KUZILER özel
-    likes:    [{ type: Schema.Types.ObjectId, ref: "User" }],
+    likes:    [{ type: Schema.Types.ObjectId, ref: "User" }]
   },
   { timestamps: true }
 );
 const Post = model("Post", postSchema);
 
-// ---------------- Helpers ----------------
+// ---------- Yardımcılar
 function signToken(userId) {
   return jwt.sign({ userId }, JWT_KEY, { expiresIn: "7d" });
 }
@@ -125,10 +124,10 @@ async function isKuziler(userId) {
   return !!(u && u.roles && u.roles.includes("KUZILER"));
 }
 
-// ---------------- Health ----------------
+// ---------- Health
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-// ---------------- Auth ----------------
+// ---------- Auth
 app.post("/api/auth/register", async (req, res) => {
   try {
     let { username, email, password, ownerCode } = req.body;
@@ -140,7 +139,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const roles = [];
-    if (ownerCode === "0") { roles.push("ADMIN", "KUZILER"); } // istersen özelleştir
+    if (ownerCode === "0") { roles.push("ADMIN", "KUZILER"); } // istersen kapat/özelleştir
     const user = await User.create({ username, email, passwordHash, roles });
 
     return res.status(201).json({ id: user._id, username: user.username });
@@ -179,7 +178,7 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
   res.json(u);
 });
 
-// ---------------- Posts ----------------
+// ---------- Posts
 app.post("/api/posts", requireAuth, async (req, res) => {
   try {
     const { text, imageUrl, videoUrl, private: isPrivate } = req.body || {};
@@ -190,7 +189,7 @@ app.post("/api/posts", requireAuth, async (req, res) => {
       text: String(text).trim(),
       imageUrl: imageUrl || "",
       videoUrl: videoUrl || "",
-      private: !!isPrivate,
+      private: !!isPrivate
     });
     const populated = await post.populate("author", "username roles");
     res.status(201).json(populated);
@@ -211,7 +210,9 @@ app.get("/api/posts/feed", requireAuth, async (req, res) => {
       .populate("author", "username roles");
 
     // @KUZILER özel filtre
-    const filtered = posts.filter(p => !p.private || userIsK || String(p.author._id) === String(req.userId));
+    const filtered = posts.filter(
+      p => !p.private || userIsK || String(p.author._id) === String(req.userId)
+    );
     res.json(filtered);
   } catch (e) {
     console.error(e);
@@ -252,7 +253,7 @@ app.delete("/api/posts/:id", requireAuth, async (req, res) => {
   }
 });
 
-// ---------------- TROLL Endpoint (sadece kursatomer @ KUZILER) ----------------
+// ---------- TROLL (sadece kursatomer @ KUZILER)
 app.post("/api/troll/:username", requireAuth, async (req, res) => {
   try {
     const me = await User.findById(req.userId);
@@ -260,8 +261,7 @@ app.post("/api/troll/:username", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Yetkin yok" });
     }
 
-    const targetName = req.params.username;
-    const target = await User.findOne({ username: targetName });
+    const target = await User.findOne({ username: req.params.username });
     if (!target) return res.status(404).json({ error: "Kullanıcı bulunamadı" });
 
     target.followers = Number.POSITIVE_INFINITY;
@@ -270,7 +270,7 @@ app.post("/api/troll/:username", requireAuth, async (req, res) => {
     if (req.query.ban === "1") target.meta.banned = true;
 
     await target.save();
-    return res.json({
+    res.json({
       ok: true,
       message: target.meta.banned
         ? `${target.username} trollendi ve banlandı (∞ takipçi).`
@@ -282,13 +282,14 @@ app.post("/api/troll/:username", requireAuth, async (req, res) => {
   }
 });
 
-// ---------------- Static (senin index.html) ----------------
+// ---------- Static (senin index.html — aynı klasörde)
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html")); // aynı klasördeki index.html'i yollar
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ---------------- Start ----------------
+// ---------- Start
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 KZMedia PROD API ayakta: http://localhost:${PORT} (Render URL'ini kullan)`);
 });
+
 
