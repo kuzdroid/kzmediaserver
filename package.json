@@ -1,14 +1,18 @@
 {
   "name": "kzmedia",
   "version": "1.0.0",
-  "description": "KZMedia backend + static",
+  "description": "KZMedia production backend (Express + MongoDB + JWT)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.6.0"
   }
 }
