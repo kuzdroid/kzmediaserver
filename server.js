@@ -1,18 +1,17 @@
 // Node.js'in yerleşik http modülünü CommonJS (require) ile dahil et
 const http = require('http'); 
 
-// Render'dan gelen PORT ortam değişkenini kullan, yoksa 8080 varsay
+// Render'ın sağladığı PORT ortam değişkenini al. Eğer yerelde çalışıyorsa 8080 kullan.
 const PORT = process.env.PORT || 8080;
 
 // *** DİKKAT ***
-// HTML içeriğiniz burada bir JavaScript template string'i olarak tanımlanır.
-// Bu kısım HİÇ DEĞİŞTİRİLMEMİŞTİR.
+// HTML içeriğinizin tamamı burada bir JavaScript template string'i olarak tanımlanmıştır.
 const html = `<!doctype html>
 <html lang="tr">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>KZMedia • Tek Dosya (Yerel Demo)</title>
+<title>KZMedia • Render Uyumlu</title>
 <style>
 :root{--bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;--primary:#4f8cff;--accent:#64d2ff;--danger:#ff5c74;--border:#212532}
 *{box-sizing:border-box}
@@ -314,20 +313,20 @@ function renderUsers(){
 </html>`;
 
 const server = http.createServer((req, res) => {
-  // Sadece tek sayfa: her istekte aynı HTML'i döndürüyoruz
+  // Tüm isteklere aynı HTML'i döndür
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(html);
 });
 
-// Port dinleme başlar ve olası hataları yakalar (Exited with status 1'i çözer)
+// Port dinleme başlar ve olası hataları yakalar (Exited with status 1'i çözmek için)
 server.listen(PORT, (err) => {
   if (err) {
+    // Eğer port dinleme sırasında hata olursa, logu göster ve sunucuyu kapat
     console.error(`❌ KRİTİK HATA: Port ${PORT} Dinlenemedi!`, err.message);
-    // Sunucuyu kapat, hata kodunu loga yazdır
     process.exit(1); 
     return;
   }
-  console.log(`KZMedia sunucusu ayakta: http://localhost:${PORT} ✅`);
+  console.log(`KZMedia sunucusu ayakta: Render URL'niz: ${PORT} portunda ✅`);
 });
 
 // Port dinleme dışında kalan genel hataları yakalar
