@@ -419,7 +419,6 @@ $('btnRefresh')?.addEventListener('click', ()=>loadFeed());
   loadFeed();
 })();
 </script>
-</body>
 // KZMedia - Prod Backend (tek MONGO_URL ile; JWT_KEY dahili; teşhis endpoint'li)
 const express = require("express");
 const mongoose = require("mongoose");
@@ -614,4 +613,5 @@ app.get("/api/posts/feed", requireAuth, async (req, res) => {
 // Statik index.html (senin dosyan)
 app.get("/", (req, res) => { res.sendFile(path.join(__dirname, "index.html")); });
 app.listen(PORT, "0.0.0.0", () => { console.log(`🚀 KZMedia API ayakta: http://localhost:${PORT}`); });
+</body>
 </html>
