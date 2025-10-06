@@ -10,7 +10,7 @@
 body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
 .header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border)}
 .container{max-width:1100px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:12px}
-@media(min-width:900px){.container{grid-template-columns:1fr 320px}}
+@media(min-width:900px){.container{grid-template-columns:1fr 360px}}
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
 input,textarea,select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:var(--text);outline:none}
 button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
@@ -24,18 +24,23 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
 .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .notice{padding:8px;border-radius:8px;background:#122;color:#9fdf;margin-top:8px}
 .admin-badge{background:#222;border-radius:6px;padding:4px 8px;font-size:12px;color:var(--accent)}
-.row{display:flex;gap:8px;align-items:center;margin-top:4px}
+.row{display:flex;gap:8px;align-items:center;margin-top:6px}
 .field-inline{flex:1}
 .footer{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
 .small-muted{font-size:12px;color:var(--muted)}
-.user-row button{padding:4px 8px;font-size:12px;}
+.user-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px dashed var(--border)}
+.user-row:first-child{border-top:none}
+.user-row .left{display:flex;gap:8px;align-items:center}
+.user-row button{padding:6px 8px;font-size:13px}
+.inline-small{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
 <div class="header">
   <div style="font-weight:800">KZMedia</div>
-  <div class="small-muted">Tam demo (yerel). Veriler localStorage'da.</div>
+  <div class="small-muted">Yerel demo — veriler localStorage'da. (Örnek kullanıcılar hazır)</div>
 </div>
+
 <main class="container">
   <!-- Sol: Akış ve Paylaşım -->
   <section class="card">
@@ -43,32 +48,29 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
       <div id="authBox">
         <h3>Giriş / Kayıt</h3>
         <div class="row">
-          <input id="txtUser" placeholder="Kullanıcı adı (boş olamaz)" class="field-inline">
+          <input id="txtUser" placeholder="Kullanıcı adı (ör. kursatomer@KUZİLER)" class="field-inline">
           <input id="txtPass" placeholder="Şifre" class="field-inline" type="password">
         </div>
-        <div class="row" style="margin-top:8px">
+        <div class="row">
           <button id="btnRegister" class="btn-primary">Kayıt Ol</button>
           <button id="btnLogin">Giriş</button>
         </div>
-        <div class="small-muted" style="margin-top:8px">
-          Sahip kodu (owner key) yerel olarak <code>OWNER_CODE</code> ile kontrol edilir. Varsayılan: "0".
-        </div>
+        <div class="small-muted" style="margin-top:8px">Sistemde hazır kullanıcılar var: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER</div>
       </div>
+
       <div id="composeBox" style="display:none;margin-top:12px">
         <h3>Paylaş</h3>
         <textarea id="postText" rows="3" placeholder="Ne paylaşmak istersin?"></textarea>
         <input id="postImage" placeholder="Resim URL (opsiyonel)">
         <input id="postVideo" placeholder="Video URL (opsiyonel)">
-        <label style="display:block;margin-top:6px">
-          <input id="postPrivate" type="checkbox"> 
-          <span class="small">@kuzilerözel (yalnızca @KUZILER üyeleri görebilir)</span>
-        </label>
+        <label style="display:block;margin-top:6px"><input id="postPrivate" type="checkbox"> <span class="small">@kuzilerözel (yalnızca @KUZİLER üyeleri görebilir)</span></label>
         <div class="controls">
           <button id="btnPost" class="btn-primary">Paylaş</button>
           <button id="btnRefresh">Yenile</button>
         </div>
       </div>
     </div>
+
     <hr>
     <h3>Akış</h3>
     <div id="feed" class="feed"></div>
@@ -76,72 +78,123 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
     <div class="footer">KZMedia • Yerel demo</div>
   </section>
 
-  <!-- Sağ: Profil / Admin / Reklam -->
+  <!-- Sağ: Profil / Admin / Yönetim -->
   <aside class="card">
     <div>
       <div class="small">Şu anki kullanıcı: <strong id="meName">—</strong> <span id="meBadge"></span></div>
       <div class="small-muted" style="margin-top:6px">Takipçi: <strong id="meFollowers">0</strong></div>
       <div style="margin-top:8px" id="authButtons"></div>
     </div>
+
     <hr>
+
+    <div>
+      <h4>Arama / Filtre</h4>
+      <input id="q" placeholder="Metinde ara...">
+      <div class="row" style="margin-top:8px">
+        <button id="btnSearch">Ara</button>
+        <button id="btnClear" style="margin-left:8px">Temizle</button>
+      </div>
+    </div>
+
+    <hr>
+
     <div id="adminPanel" style="display:none">
       <h4>Admin Paneli</h4>
-      <div class="small-muted">Burada adminler duyuru (ilan), kullanıcı rolleri ve takipçi sayısını düzenleyebilir. Ayrıca kullanıcıları admin yapabilirsiniz.</div>
+      <div class="small-muted">Sadece ADMIN görüyor. Kursatomer özel yetkilere sahip (troll avantajları).</div>
+
       <div style="margin-top:8px">
         <label>Duyuru / İlan (tek tane)</label>
         <textarea id="adminAd" rows="3" placeholder="Kısa ilan/duyuru"></textarea>
-        <div style="margin-top:8px" class="row">
+        <div class="row" style="margin-top:8px">
           <button id="btnSaveAd" class="btn-primary">Duyuruyu Kaydet</button>
           <button id="btnClearAd">Temizle</button>
         </div>
       </div>
+
       <hr>
+
       <div>
         <h4>Kullanıcıları Yönet</h4>
         <div id="userList"></div>
       </div>
+
       <hr>
+
       <div>
         <label>Kullanıcı takipçi sayısını değiştir</label>
         <div class="row" style="margin-top:6px">
-          <input id="adminUserFollowers" placeholder="kullaniciadi" class="field-inline">
-          <input id="adminFollowerCount" placeholder="yeni sayı" style="width:90px">
+          <input id="adminUserFollowers" placeholder="kullaniciadi@KUZİLER" class="field-inline">
+          <input id="adminFollowerCount" placeholder="yeni sayı (ör. 42 veya ∞ için INF)" style="width:90px">
         </div>
         <div style="margin-top:8px">
           <button id="btnSetFollowers" class="btn-primary">Uygula</button>
         </div>
       </div>
     </div>
+
     <div id="adBox" style="margin-top:12px"></div>
   </aside>
 </main>
 
 <script>
-const OWNER_CODE = "0"; // owner kodu
+/*
+  Tek dosya KZMedia — güncellenmiş.
+  Hazır kullanıcılar (kullanici:şifre):
+    - kursatomer@KUZİLER  : KUZİLER    (ADMIN, troll avantajları, followers = Infinity)
+    - elalye@KUZİLER      : KZTeknik   (KUZILER member)
+    - sena@KUZİLER        : KZResim    (KUZILER member)
+    - MR.Selim@KUZİLER    : KZYTB      (KUZILER member)
+
+  Not: localStorage anahtarı = 'KZMedia.data'
+*/
+
+const OWNER_CODE = "0"; // istersen owner kodunu kullanabilirsin (kayıt için)
+const INF = "∞";
+
 let DATA = loadData();
-const $ = id=>document.getElementById(id);
+const $ = id => document.getElementById(id);
+
+// Eğer başlangıçta kullanıcılar yoksa hazırla
+(function ensureDefaults(){
+  if(!DATA.users) DATA.users = {};
+  // add default users if not exist
+  const defaults = {
+    "kursatomer@KUZİLER": { pass: "KUZİLER", roles: ["ADMIN","KUZILER"], followers: Infinity },
+    "elalye@KUZİLER":     { pass: "KZTeknik", roles: ["KUZILER"], followers: 100 },
+    "sena@KUZİLER":       { pass: "KZResim", roles: ["KUZILER"], followers: 80 },
+    "MR.Selim@KUZİLER":   { pass: "KZYTB", roles: ["KUZILER"], followers: 50 }
+  };
+  for(const k in defaults){
+    if(!DATA.users[k]) DATA.users[k] = defaults[k];
+  }
+  if(!DATA.posts) DATA.posts = [];
+  if(DATA.ad===undefined) DATA.ad = "";
+  saveData();
+})();
 
 function loadData(){
   const raw = localStorage.getItem('KZMedia.data');
   if(!raw) return { users:{}, posts:[], ad:"" };
-  try{ return JSON.parse(raw);}catch(e){return { users:{}, posts:[], ad:"" };}
+  try{ return JSON.parse(raw); }catch(e){ return { users:{}, posts:[], ad:"" }; }
 }
+function saveData(){ localStorage.setItem('KZMedia.data', JSON.stringify(DATA)); }
 
-function saveData(){ localStorage.setItem('KZMedia.data',JSON.stringify(DATA)); }
 function setMe(name){
   if(!name){
-    window._ME=null;
-    $('meName').textContent='—';
-    $('meBadge').textContent='';
-    $('meFollowers').textContent='0';
-  }else{
-    window._ME={name};
+    window._ME = null;
+    $('meName').textContent = '—';
+    $('meBadge').textContent = '';
+    $('meFollowers').textContent = '0';
+  } else {
+    window._ME = { name };
     const u = DATA.users[name];
     const isAdmin = u.roles && u.roles.indexOf('ADMIN')>=0;
     const isK = u.roles && u.roles.indexOf('KUZILER')>=0;
-    $('meName').textContent=name;
-    $('meBadge').textContent= isAdmin ? ' <span class="admin-badge">ADMIN</span>' : (isK ? ' <span class="small-muted">@KUZILER</span>' : '');
-    $('meFollowers').textContent=u.followers||0;
+    $('meName').textContent = name;
+    $('meBadge').innerHTML = isAdmin ? '<span class="admin-badge">ADMIN</span>' : (isK ? '<span class="small-muted">@KUZILER</span>' : '');
+    const f = u.followers === Infinity ? INF : (u.followers || 0);
+    $('meFollowers').textContent = f;
   }
   renderAuthUI();
   loadFeed();
@@ -157,58 +210,61 @@ function renderAuthUI(){
   const meName = window._ME?.name;
   if(meName && DATA.users[meName] && DATA.users[meName].roles && DATA.users[meName].roles.indexOf('ADMIN')>=0){
     $('adminPanel').style.display='block';
-  }else{
+  } else {
     $('adminPanel').style.display='none';
   }
 }
 
-// --- Register / Login
-$('btnRegister').addEventListener('click',()=>{
+// Register / Login
+$('btnRegister').addEventListener('click', ()=>{
   const name = $('txtUser').value.trim();
   const pass = $('txtPass').value;
-  if(!name){ alert('Kullanıcı adı girin'); return;}
-  if(DATA.users[name]){ alert('Bu kullanıcı adı zaten var'); return;}
-  DATA.users[name]={ pass:pass||'', roles:[], followers:0 };
-  if(pass===OWNER_CODE){ DATA.users[name].roles.push('ADMIN'); DATA.users[name].roles.push('KUZILER'); }
+  if(!name){ alert('Kullanıcı adı girin'); return; }
+  if(DATA.users[name]){ alert('Bu kullanıcı adı zaten var'); return; }
+  DATA.users[name] = { pass: pass||'', roles: [], followers: 0 };
+  // owner kodu ile ilk kayıt admin olabilir
+  if(pass === OWNER_CODE){ DATA.users[name].roles.push('ADMIN'); DATA.users[name].roles.push('KUZILER'); }
   saveData();
   alert('Kayıt tamam. Giriş yapabilirsiniz.');
 });
 
-$('btnLogin').addEventListener('click',()=>{
+$('btnLogin').addEventListener('click', ()=>{
   const name = $('txtUser').value.trim();
   const pass = $('txtPass').value;
-  if(!name){ alert('Kullanıcı adı girin'); return;}
+  if(!name){ alert('Kullanıcı adı girin'); return; }
   const u = DATA.users[name];
-  if(!u){ alert('Kullanıcı bulunamadı. Kayıt olun.'); return;}
-  if(u.pass!==pass){ alert('Şifre yanlış'); return;}
+  if(!u){ alert('Kullanıcı bulunamadı. Kayıt olun.'); return; }
+  if(u.pass !== pass){ alert('Şifre yanlış'); return; }
   setMe(name);
 });
 
-// logout / profil
+// logout / profile buttons
 function addAuthButtons(){
-  const box=$('authButtons'); box.innerHTML='';
+  const box = $('authButtons'); box.innerHTML = '';
   if(window._ME){
-    const btnLogout=document.createElement('button'); btnLogout.textContent='Çıkış';
-    btnLogout.onclick=()=>setMe(null);
-    const btnProfile=document.createElement('button'); btnProfile.textContent='Profilim';
-    btnProfile.onclick=()=>alert('Profil: '+window._ME.name);
+    const btnProfile = document.createElement('button'); btnProfile.textContent = 'Profilim';
+    btnProfile.onclick = ()=> alert('Profil: ' + window._ME.name);
+    const btnLogout = document.createElement('button'); btnLogout.textContent = 'Çıkış';
+    btnLogout.onclick = ()=> setMe(null);
     box.appendChild(btnProfile); box.appendChild(btnLogout);
   }
 }
 
-// --- Posts
-$('btnPost').addEventListener('click',()=>{
-  if(!window._ME){ alert('Önce giriş yapın'); return;}
+// Posts
+$('btnPost').addEventListener('click', ()=>{
+  if(!window._ME){ alert('Önce giriş yapın'); return; }
   const text = $('postText').value.trim();
-  if(!text){ alert('Metin boş olamaz'); return;}
-  const p={ id:Date.now().toString(36)+Math.random().toString(36).slice(2,8),
-            author:window._ME.name,
-            text,
-            imageUrl:$('postImage').value.trim()||null,
-            videoUrl:$('postVideo').value.trim()||null,
-            private:!!$('postPrivate').checked,
-            likes:0,
-            createdAt:Date.now() };
+  if(!text){ alert('Metin boş olamaz'); return; }
+  const p = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,8),
+    author: window._ME.name,
+    text,
+    imageUrl: $('postImage').value.trim() || null,
+    videoUrl: $('postVideo').value.trim() || null,
+    private: !!$('postPrivate').checked,
+    likes: 0,
+    createdAt: Date.now()
+  };
   DATA.posts.push(p);
   saveData();
   $('postText').value=''; $('postImage').value=''; $('postVideo').value=''; $('postPrivate').checked=false;
@@ -216,21 +272,21 @@ $('btnPost').addEventListener('click',()=>{
 });
 
 function loadFeed(){
-  const feed = $('feed'); feed.innerHTML='';
-  const q = $('q')?.value.trim().toLowerCase()||'';
+  const feed = $('feed'); feed.innerHTML = '';
+  const q = $('q')?.value.trim().toLowerCase() || '';
   const list = (DATA.posts||[]).slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  let shown=0;
+  let shown = 0;
   for(const p of list){
     if(p.private){
-      const me=window._ME?DATA.users[window._ME.name]:null;
+      const me = window._ME ? DATA.users[window._ME.name] : null;
       const isMember = me && me.roles && me.roles.indexOf('KUZILER')>=0;
-      if(!isMember && !(window._ME && window._ME.name===p.author)) continue;
+      if(!isMember && !(window._ME && window._ME.name === p.author)) continue;
     }
     if(q && !((p.text||'').toLowerCase().includes(q) || (p.author||'').toLowerCase().includes(q))) continue;
-    const div=document.createElement('div'); div.className='post';
+    const div = document.createElement('div'); div.className = 'post';
     const isAdmin = window._ME && DATA.users[window._ME.name] && DATA.users[window._ME.name].roles && DATA.users[window._ME.name].roles.indexOf('ADMIN')>=0;
-    const canEdit = window._ME && (window._ME.name===p.author || isAdmin);
-    const tag = (DATA.users[p.author] && DATA.users[p.author].roles && DATA.users[p.author].roles.indexOf('KUZILER')>=0) ? '<span class="tag">@KUZILER</span>':'';
+    const canEdit = window._ME && (window._ME.name === p.author || isAdmin);
+    const tag = (DATA.users[p.author] && DATA.users[p.author].roles && DATA.users[p.author].roles.indexOf('KUZILER')>=0) ? '<span class="tag">@KUZILER</span>' : '';
     div.innerHTML = `<div class="meta"><div class="who">${escapeHtml(p.author)} ${tag}</div><div class="small">${new Date(p.createdAt).toLocaleString()}</div></div>
                      <div>${escapeHtml(p.text)}</div>
                      ${p.imageUrl?`<div><img src="${escapeHtml(p.imageUrl)}" alt=""></div>`:''}
@@ -242,382 +298,206 @@ function loadFeed(){
                      </div>`;
     feed.appendChild(div);
     shown++;
-    div.querySelector('.btn-like')?.addEventListener('click',()=>{ p.likes=(p.likes||0)+1; saveData(); loadFeed(); });
+    div.querySelector('.btn-like')?.addEventListener('click', ()=>{ p.likes=(p.likes||0)+1; saveData(); loadFeed(); });
     if(canEdit){
-      div.querySelector('.btn-edit')?.addEventListener('click',()=>{ const newText=prompt('Yeni metin:',p.text); if(newText!==null){ p.text=newText; saveData(); loadFeed(); }});
-      div.querySelector('.btn-del')?.addEventListener('click',()=>{ if(confirm('Gönderiyi silmek istiyor musunuz?')){ DATA.posts=DATA.posts.filter(x=>x.id!==p.id); saveData(); loadFeed(); }});
+      div.querySelector('.btn-edit')?.addEventListener('click', ()=>{ 
+        // kursatomer special: can edit anyone's post; other admins can too
+        if(!(window._ME && (window._ME.name === p.author || (DATA.users[window._ME.name] && DATA.users[window._ME.name].roles.indexOf('ADMIN')>=0)))) return;
+        const newText = prompt('Yeni metin:', p.text);
+        if(newText !== null){ p.text = newText; saveData(); loadFeed(); }
+      });
+      div.querySelector('.btn-del')?.addEventListener('click', ()=>{ 
+        if(!(window._ME && (window._ME.name === p.author || (DATA.users[window._ME.name] && DATA.users[window._ME.name].roles.indexOf('ADMIN')>=0)))) return;
+        if(confirm('Gönderiyi silmek istiyor musunuz?')){ DATA.posts = DATA.posts.filter(x=>x.id!==p.id); saveData(); loadFeed(); }
+      });
     }
   }
-  $('empty').style.display=shown?'none':'block';
+  $('empty').style.display = shown ? 'none' : 'block';
 }
 
-function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
+function escapeHtml(s=''){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
-// --- Admin Actions
-$('btnSaveAd')?.addEventListener('click',()=>{ if(!checkAdmin()) return; DATA.ad=$('adminAd').value.trim(); saveData(); renderAd(); alert('Duyuru kaydedildi'); });
-$('btnClearAd')?.addEventListener('click',()=>{ if(!checkAdmin()) return; DATA.ad=''; saveData(); renderAd(); });
+// Admin actions
+$('btnSaveAd')?.addEventListener('click', ()=>{ if(!checkAdmin()) return; DATA.ad = $('adminAd').value.trim(); saveData(); renderAd(); alert('Duyuru kaydedildi'); });
+$('btnClearAd')?.addEventListener('click', ()=>{ if(!checkAdmin()) return; DATA.ad = ''; saveData(); renderAd(); });
 
-// --- Set followers
-$('btnSetFollowers')?.addEventListener('click',()=>{
+$('btnSetFollowers')?.addEventListener('click', ()=>{
   if(!checkAdmin()) return;
-  const name=$('adminUserFollowers').value.trim(); const cnt=parseInt($('adminFollowerCount').value);
+  const name = $('adminUserFollowers').value.trim();
+  let cntRaw = $('adminFollowerCount').value.trim();
   if(!name || !DATA.users[name]) return alert('Kullanıcı bulunamadı');
-  if(Number.isNaN(cnt)) return alert('Geçerli sayı girin');
-  DATA.users[name].followers=cnt; saveData(); alert('Ayar kaydedildi');
-  if(window._ME && window._ME.name===name) setMe(name);
+  if(cntRaw === '∞' || cntRaw.toUpperCase()==='INF') {
+    DATA.users[name].followers = Infinity;
+  } else {
+    const cnt = parseInt(cntRaw);
+    if(Number.isNaN(cnt)) return alert('Geçerli sayı girin');
+    DATA.users[name].followers = cnt;
+  }
+  saveData();
+  alert('Ayar kaydedildi');
+  if(window._ME && window._ME.name === name) setMe(name);
 });
 
-// --- Render ad
-function renderAd(){
-  const box=$('adBox'); box.innerHTML='';
-  if(DATA.ad && DATA.ad.trim()){ const d=document.createElement('div'); d.className='notice'; d.textContent=DATA.ad; box.appendChild(d); }
-}
+// render ad
+function renderAd(){ const box = $('adBox'); box.innerHTML=''; if(DATA.ad && DATA.ad.trim()){ const d = document.createElement('div'); d.className='notice'; d.textContent = DATA.ad; box.appendChild(d); } }
 
-// --- Check admin
-function checkAdmin(){ const me=window._ME && DATA.users[window._ME.name]; if(!me || !me.roles || me.roles.indexOf('ADMIN')<0){ alert('Sadece adminler yapabilir'); return false;} return true;}
+// check admin
+function checkAdmin(){ const me = window._ME && DATA.users[window._ME.name]; if(!me || !me.roles || me.roles.indexOf('ADMIN')<0){ alert('Sadece adminler yapabilir'); return false; } return true; }
 
-// --- Render users for admin panel
+// render users list in admin panel
 function renderUsers(){
-  const list=$('userList'); if(!list) return;
-  list.innerHTML='';
-  for(const name in DATA.users){
-    const u=DATA.users[name];
-    const div=document.createElement('div'); div.className='row user-row';
-    const isAdmin = u.roles && u.roles.indexOf('ADMIN')>=0;
-    const displayName = isAdmin?name+'@ADMIN':name;
-    div.innerHTML=`<span>${displayName}</span> <button class="btn-primary btn-make-admin">Admin Yap</button>`;
-    div.querySelector('.btn-make-admin').addEventListener('click',()=>{
+  const list = $('userList'); if(!list) return; list.innerHTML = '';
+  // show users sorted: admins first
+  const names = Object.keys(DATA.users).sort((a,b)=>{
+    const aAdmin = DATA.users[a].roles && DATA.users[a].roles.indexOf('ADMIN')>=0;
+    const bAdmin = DATA.users[b].roles && DATA.users[b].roles.indexOf('ADMIN')>=0;
+    return (aAdmin === bAdmin) ? a.localeCompare(b) : (aAdmin ? -1 : 1);
+  });
+  for(const name of names){
+    const u = DATA.users[name];
+    const div = document.createElement('div'); div.className='user-row';
+    const left = document.createElement('div'); left.className='left';
+    const badge = (u.roles && u.roles.indexOf('ADMIN')>=0) ? '<span class="admin-badge">ADMIN</span>' : ((u.roles && u.roles.indexOf('KUZILER')>=0)?'<span class="small-muted">@KUZILER</span>':'');
+    const f = u.followers === Infinity ? INF : (u.followers||0);
+    left.innerHTML = `<div><strong>${name}</strong> ${badge} <div class="inline-small">Takipçi: ${f}</div></div>`;
+    const right = document.createElement('div');
+    // Make Admin button (visible to admins)
+    const btnMakeAdmin = document.createElement('button'); btnMakeAdmin.textContent = 'Admin Yap'; btnMakeAdmin.className='btn-primary';
+    btnMakeAdmin.onclick = ()=>{
       if(!checkAdmin()) return;
-      if(!u.roles) u.roles=[];
+      if(!u.roles) u.roles = [];
       if(u.roles.indexOf('ADMIN')<0) u.roles.push('ADMIN');
-      saveData(); renderUsers(); alert(displayName+' artık admin!');
-    });
+      if(u.roles.indexOf('KUZILER')<0) u.roles.push('KUZILER');
+      saveData(); renderUsers(); alert(name + ' artık ADMIN!');
+    };
+    // Set followers button
+    const btnSetF = document.createElement('button'); btnSetF.textContent = 'Takipçi Ayarla'; btnSetF.onclick = ()=>{
+      if(!checkAdmin()) return;
+      // kursatomer special: can directly set infinite
+      let cur = prompt('Yeni takipçi sayısı (yaz "INF" veya "∞" için sonsuz):', u.followers===Infinity? 'INF' : (u.followers||0));
+      if(cur === null) return;
+      if(cur === '∞' || cur.toUpperCase()==='INF'){ u.followers = Infinity; }
+      else { const n = parseInt(cur); if(Number.isNaN(n)) return alert('Geçerli sayı girin'); u.followers = n; }
+      saveData(); renderUsers();
+    };
+    // Troll action: kursatomer özel (ör: troll => takipçi INF + gösterme mesajı)
+    const btnTroll = document.createElement('button'); btnTroll.textContent = 'TROLL'; btnTroll.className='btn-danger';
+    btnTroll.onclick = ()=>{
+      // only kursatomer can use "TROLL"
+      if(!(window._ME && window._ME.name === 'kursatomer@KUZİLER')){ alert('Sadece kursatomer kullanabilir'); return; }
+      if(!confirm(name + ' kullanıcısına troll işlemi uygula (takipçi => ∞ ve "trollled" notu ekle)?')) return;
+      u.followers = Infinity;
+      // ek opsiyon: kullanıcının adını değiştirme yerine suffix ekle (zaten suffix var)
+      // istersen not ekle
+      if(!u.meta) u.meta = {};
+      u.meta.trolledAt = Date.now();
+      saveData(); renderUsers(); alert(name + ' trollledi (takipçi ∞ oldu).');
+    };
+
+    // If current user is kursatomer or any admin, show Make Admin button; but kursatomer can make admin always (already admin)
+    right.appendChild(btnMakeAdmin);
+    right.appendChild(btnSetF);
+    // show troll button only if current logged in is kursatomer
+    if(window._ME && window._ME.name === 'kursatomer@KUZİLER') right.appendChild(btnTroll);
+    div.appendChild(left); div.appendChild(right);
     list.appendChild(div);
   }
 }
 
-// startup
+// Payment-request / IBAN flow could be added separately (manual).
+// Admin onay is done via this UI (Make Admin button).
+
+// --- Misc UI handlers
+$('btnSearch')?.addEventListener('click', ()=>loadFeed());
+$('btnClear')?.addEventListener('click', ()=>{ $('q').value=''; loadFeed(); });
+$('btnRefresh')?.addEventListener('click', ()=>loadFeed());
+
+// Auto-save / startup
 (function startup(){
-  if(!DATA.users['owner']) DATA.users['owner']={pass:OWNER_CODE,roles:['ADMIN','KUZILER'],followers:0};
   saveData();
   setMe(null);
+  loadFeed();
 })();
-// KZMedia - PROD Backend (MongoDB Atlas, separate auth; bad-auth'a kesin çözüm)
-// Kullanım: Render ENV'ye şunları ekle (tırnaksız, tek satır):
-// MONGO_HOST=kzcluster.cjxpbq3.mongodb.net
-// MONGO_USER=KZMedia             (DB Access'teki kullanıcı adı; CASE-SENSITIVE!)
-// MONGO_PASS=ParolanHarfRakam    (öneri: sadece harf+rakam; encode derdi yok)
-// DB_NAME=kzmedia
-// JWT_KEY=kzmedia-ProdSecret-2025!!   (uzun bir gizli anahtar)
-// Not: MONGO_URL KULLANILMIYOR. (Varsa sil/boşalt)
-//
-// Build: npm install
-// Start: npm start
+<!-- KZMedia Backend Adapter START -->
+<script>
+const API = ""; // aynı origin
 
-const express = require("express");
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const helmet = require("helmet");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const path = require("path");
+function setToken(t){ localStorage.setItem("kzmedia_token", t); }
+function getToken(){ return localStorage.getItem("kzmedia_token"); }
+function authHeader(){ const t=getToken(); return t? { "Authorization":"Bearer "+t } : {}; }
+function esc(s=""){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-const app = express();
-const PORT = process.env.PORT || 8080;
-const JWT_KEY =
-  process.env.JWT_KEY ||
-  "kzmedia_prod_f2d8c7f9c0a14a5ab2c4b8e9d1e3f5a7b9c2d4e6f8a0b1c2d3e4f5061728394".slice(
-    0,
-    64
-  );
-
-app.set("trust proxy", 1);
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors());
-app.use(express.json({ limit: "1mb" }));
-
-const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60 });
-const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
-app.use("/api/auth", authLimiter);
-app.use("/api", apiLimiter);
-
-/* ---------------- MONGO: separate auth (URI'ya user/pass gömmeyiz) ---------------- */
-const HOST = (process.env.MONGO_HOST || "").trim(); // ör: kzcluster.cjxpbq3.mongodb.net
-const USER = (process.env.MONGO_USER || "").trim(); // ör: KZMedia  (CASE-SENSITIVE!)
-const PASS = process.env.MONGO_PASS ?? ""; // düz şifre (öneri: harf+rakam)
-const DB = (process.env.DB_NAME || "kzmedia").trim();
-
-if (!HOST || !USER || PASS === "") {
-  console.error(
-    "❌ Mongo ENV eksik. Gerekli: MONGO_HOST, MONGO_USER, MONGO_PASS, DB_NAME"
-  );
-  process.exit(1);
-}
-
-const baseUri = `mongodb+srv://${HOST}/?retryWrites=true&w=majority`;
-
-mongoose
-  .connect(baseUri, {
-    dbName: DB,
-    user: USER,
-    pass: PASS,
-    authSource: "admin", // Atlas DB kullanıcıları admin DB'de tutulur
-    authMechanism: "SCRAM-SHA-256",
-    serverSelectionTimeoutMS: 15000,
-  })
-  .then(() => {
-    console.log("✅ MongoDB Atlas bağlandı (separate auth)");
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB bağlantı hatası:", err.message);
-    console.error(
-      "ℹ️ Kontrol: Database Access'te DB User (Project User değil), Username CASE doğru, şifre doğru, Network Access 0.0.0.0/0, host ve DB adı doğru."
-    );
-    process.exit(1);
-  });
-
-/* ---------------- MODELLER ---------------- */
-const { Schema, model } = mongoose;
-
-const userSchema = new Schema(
-  {
-    username: {
-      type: String,
-      unique: true,
-      required: true,
-      minlength: 3,
-      maxlength: 24,
-    },
-    email: { type: String, unique: true, sparse: true },
-    passwordHash: { type: String, required: true },
-    roles: { type: [String], default: [] }, // ["ADMIN","KUZILER"]
-    followers: { type: Number, default: 0 },
-    meta: { type: Object, default: {} },
-  },
-  { timestamps: true }
-);
-const User = model("User", userSchema);
-
-const postSchema = new Schema(
-  {
-    author: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    text: { type: String, required: true, maxlength: 500 },
-    imageUrl: { type: String, default: "" },
-    videoUrl: { type: String, default: "" },
-    private: { type: Boolean, default: false }, // @KUZILER özel
-    likes: [{ type: Schema.Types.ObjectId, ref: "User" }],
-  },
-  { timestamps: true }
-);
-const Post = model("Post", postSchema);
-
-/* ---------------- YARDIMCILAR ---------------- */
-function signToken(userId) {
-  return jwt.sign({ userId }, JWT_KEY, { expiresIn: "7d" });
-}
-function requireAuth(req, res, next) {
-  const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  if (!token) return res.status(401).json({ error: "Oturum gerekli" });
-  try {
-    const payload = jwt.verify(token, JWT_KEY);
-    req.userId = payload.userId;
-    next();
-  } catch {
-    return res.status(401).json({ error: "Token geçersiz" });
-  }
-}
-async function isAdmin(userId) {
-  const u = await User.findById(userId);
-  return !!(u && u.roles && u.roles.includes("ADMIN"));
-}
-async function isKuziler(userId) {
-  const u = await User.findById(userId);
-  return !!(u && u.roles && u.roles.includes("KUZILER"));
-}
-
-/* ---------------- HEALTH & DIAG ---------------- */
-app.get("/health", (req, res) =>
-  res.json({ ok: true, db: mongoose.connection.readyState === 1 ? "up" : "down" })
-);
-app.get("/db/check", async (req, res) => {
-  try {
-    const state = mongoose.connection.readyState; // 0=d,1=c,2=ing,3=dising
-    if (state !== 1) await mongoose.connection.asPromise();
-    res.json({ ok: mongoose.connection.readyState === 1, state: mongoose.connection.readyState });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
+// Kayıt
+document.getElementById("btnRegister")?.addEventListener("click", async ()=>{
+  const u=document.getElementById("txtUser").value.trim();
+  const p=document.getElementById("txtPass").value;
+  const email=u?u+"@kzmedia.local":"";
+  const payload={ username:u, email, password:p, ownerCode:(p==="0"?"0":"") };
+  const r=await fetch(API+"/api/auth/register",{method:"POST",headers:{ "Content-Type":"application/json"},body:JSON.stringify(payload)});
+  const out=await r.json(); if(!r.ok) return alert(out.error||"Kayıt başarısız"); alert("Kayıt OK, şimdi giriş yap!");
 });
 
-/* ---------------- AUTH ---------------- */
-app.post("/api/auth/register", async (req, res) => {
-  try {
-    let { username, email, password, ownerCode } = req.body || {};
-    if (!username || !password)
-      return res.status(400).json({ error: "Eksik alanlar" });
-    username = String(username).trim();
-
-    const exists = await User.findOne({ $or: [{ username }, { email }] });
-    if (exists)
-      return res
-        .status(409)
-        .json({ error: "Kullanıcı adı veya e-posta kullanımda" });
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const roles = ownerCode === "0" ? ["ADMIN", "KUZILER"] : [];
-
-    const user = await User.create({ username, email, passwordHash, roles });
-    res
-      .status(201)
-      .json({ id: user._id, username: user.username, roles: user.roles });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+// Giriş
+document.getElementById("btnLogin")?.addEventListener("click", async ()=>{
+  const u=document.getElementById("txtUser").value.trim();
+  const p=document.getElementById("txtPass").value;
+  const r=await fetch(API+"/api/auth/login",{method:"POST",headers:{ "Content-Type":"application/json"},body:JSON.stringify({usernameOrEmail:u,password:p})});
+  const out=await r.json(); if(!r.ok) return alert(out.error||"Giriş başarısız");
+  setToken(out.token);
+  document.getElementById("meName").textContent = out.user?.username || u;
+  loadFeed();
+  alert("Giriş OK");
 });
 
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    const { usernameOrEmail, password } = req.body || {};
-    if (!usernameOrEmail || !password)
-      return res.status(400).json({ error: "Eksik alanlar" });
+// Paylaş
+document.getElementById("btnPost")?.addEventListener("click", async ()=>{
+  const text = document.getElementById("postText").value.trim();
+  const imageUrl=(document.getElementById("postImage").value||"").trim();
+  const videoUrl=(document.getElementById("postVideo").value||"").trim();
+  const isPrivate=!!document.getElementById("postPrivate").checked;
+  if(!text) return alert("Metin boş olamaz");
+  const r=await fetch(API+"/api/posts",{method:"POST",headers:{ "Content-Type":"application/json", ...authHeader() },body:JSON.stringify({text,imageUrl,videoUrl,private:isPrivate})});
+  const out=await r.json(); if(!r.ok) return alert(out.error||"Paylaşım başarısız");
+  document.getElementById("postText").value=""; document.getElementById("postImage").value=""; document.getElementById("postVideo").value=""; document.getElementById("postPrivate").checked=false;
+  loadFeed();
+});
 
-    const user = await User.findOne({
-      $or: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
+// Yenile
+document.getElementById("btnRefresh")?.addEventListener("click", ()=>loadFeed());
+
+// Feed override
+window.loadFeed = async function(){
+  const feed=document.getElementById("feed"); const empty=document.getElementById("empty");
+  if(feed) feed.innerHTML="";
+  const t=getToken(); if(!t){ if(empty){empty.style.display="block"; empty.textContent="Giriş yapınca akış gözükecek."} return; }
+  const r=await fetch(API+"/api/posts/feed?limit=50",{ headers:{ ...authHeader() }});
+  const posts=await r.json(); if(!r.ok) return alert(posts.error||"Akış yüklenemedi");
+  let shown=0;
+  for(const p of posts){
+    const div=document.createElement("div"); div.className="post";
+    const who= p.author?.username || "—";
+    const when= p.createdAt ? new Date(p.createdAt).toLocaleString() : "";
+    const likes = Array.isArray(p.likes) ? p.likes.length : (p.likes||0);
+    div.innerHTML=`
+      <div class="meta"><div class="who">${esc(who)} ${p.private ? '<span class="tag">@KUZILER</span>':''}</div><div class="small">${when}</div></div>
+      <div>${esc(p.text||"")}</div>
+      ${p.imageUrl?`<div><img src="${esc(p.imageUrl)}" alt=""></div>`:''}
+      ${p.videoUrl?`<div><video controls src="${esc(p.videoUrl)}"></video></div>`:''}
+      <div class="row" style="margin-top:8px"><button class="btn-like">❤ ${likes}</button></div>`;
+    div.querySelector(".btn-like")?.addEventListener("click", async ()=>{
+      const rr=await fetch(API+`/api/posts/${p._id}/like`,{method:"POST",headers:{ ...authHeader() }});
+      const o=await rr.json(); if(!rr.ok) return alert(o.error||"Like hatası"); div.querySelector(".btn-like").textContent=`❤ ${o.likes}`;
     });
-    if (!user) return res.status(401).json({ error: "Kullanıcı bulunamadı" });
-
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ error: "Şifre hatalı" });
-
-    const token = signToken(user._id);
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        roles: user.roles,
-        followers: user.followers,
-      },
-    });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+    feed?.appendChild(div); shown++;
   }
-});
+  if(empty) empty.style.display = shown ? "none" : "block";
+};
 
-app.get("/api/auth/me", requireAuth, async (req, res) => {
-  const u = await User.findById(req.userId).select("username roles followers");
-  res.json(u);
-});
-
-/* ---------------- POSTS ---------------- */
-app.post("/api/posts", requireAuth, async (req, res) => {
-  try {
-    const { text, imageUrl, videoUrl, private: isPrivate } = req.body || {};
-    if (!text || !String(text).trim())
-      return res.status(400).json({ error: "Metin gerekli" });
-
-    const post = await Post.create({
-      author: req.userId,
-      text: String(text).trim(),
-      imageUrl: imageUrl || "",
-      videoUrl: videoUrl || "",
-      private: !!isPrivate,
-    });
-    const populated = await post.populate("author", "username roles");
-    res.status(201).json(populated);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get("/api/posts/feed", requireAuth, async (req, res) => {
-  try {
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const userIsK = await isKuziler(req.userId);
-
-    const posts = await Post.find()
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .populate("author", "username roles");
-
-    const filtered = posts.filter(
-      (p) =>
-        !p.private || userIsK || String(p.author._id) === String(req.userId)
-    );
-    res.json(filtered);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.post("/api/posts/:id/like", requireAuth, async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ error: "Gönderi bulunamadı" });
-
-    const idx = post.likes.findIndex((u) => String(u) === String(req.userId));
-    if (idx === -1) post.likes.push(req.userId);
-    else post.likes.splice(idx, 1);
-
-    await post.save();
-    res.json({ likes: post.likes.length, liked: idx === -1 });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.delete("/api/posts/:id", requireAuth, async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.id).populate("author", "_id");
-    if (!post) return res.status(404).json({ error: "Gönderi bulunamadı" });
-    const isAuthor = String(post.author._id) === String(req.userId);
-    const admin = await isAdmin(req.userId);
-    if (!isAuthor && !admin) return res.status(403).json({ error: "Yetki yok" });
-
-    await Post.deleteOne({ _id: post._id });
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-/* ---------------- TROLL (sadece kursatomer @ KUZILER) ---------------- */
-app.post("/api/troll/:username", requireAuth, async (req, res) => {
-  try {
-    const me = await User.findById(req.userId);
-    if (!me || me.username !== "kursatomer" || !me.roles.includes("KUZILER")) {
-      return res.status(403).json({ error: "Yetkin yok" });
-    }
-    const target = await User.findOne({ username: req.params.username });
-    if (!target) return res.status(404).json({ error: "Kullanıcı bulunamadı" });
-
-    target.followers = Number.POSITIVE_INFINITY;
-    target.meta = target.meta || {};
-    target.meta.trolledAt = Date.now();
-    if (req.query.ban === "1") target.meta.banned = true;
-
-    await target.save();
-    res.json({
-      ok: true,
-      message: target.meta.banned
-        ? `${target.username} trollendi ve banlandı (∞).`
-        : `${target.username} trollendi (∞).`,
-    });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-/* ---------------- Statik (senin index.html) ---------------- */
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-/* ---------------- Start ---------------- */
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 KZMedia API ayakta: http://localhost:${PORT}`);
-});
+// Oturum varsa me + feed
+(async()=>{ const t=getToken(); if(!t) return;
+  try{ const r=await fetch(API+"/api/auth/me",{headers:{ ...authHeader() }}); if(r.ok){ const me=await r.json(); document.getElementById("meName").textContent = me?.username || "—"; loadFeed(); } }catch(_){}
+})();
 </script>
+<!-- KZMedia Backend Adapter END -->
 </body>
 </html>
