@@ -418,86 +418,144 @@ $('btnRefresh')?.addEventListener('click', ()=>loadFeed());
   setMe(null);
   loadFeed();
 })();
-<!-- KZMedia Backend Adapter START -->
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>KZMedia</title>
+<style>
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:#0b0c10;color:#e8eaed}
+.wrap{max-width:900px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:1fr 320px;gap:12px}
+.card{background:#11131a;border:1px solid #212532;border-radius:12px;padding:12px}
+input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #212532;background:#0e1016;color:#e8eaed}
+button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
+.btn{background:#4f8cff;color:#fff}
+.small{font-size:12px;color:#a3a7b0}
+.post{margin-top:10px;padding:10px;border:1px solid #212532;border-radius:10px}
+.row{display:flex;gap:8px;align-items:center;margin-top:6px}
+</style>
+</head>
+<body>
+<header class="card" style="margin:12px 16px">
+  <strong>KZMedia</strong> <span class="small">• prod</span>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <h3>Giriş / Kayıt</h3>
+    <div class="row">
+      <input id="txtUser" placeholder="kullanıcı adı">
+      <input id="txtPass" placeholder="şifre" type="password">
+      <button id="btnRegister" class="btn">Kayıt</button>
+      <button id="btnLogin">Giriş</button>
+    </div>
+
+    <hr style="margin:12px 0;border-color:#212532">
+    <div id="compose" style="display:none">
+      <h3>Paylaş</h3>
+      <textarea id="postText" rows="3" placeholder="Ne paylaşmak istersin?"></textarea>
+      <input id="postImage" placeholder="Resim URL (opsiyonel)">
+      <input id="postVideo" placeholder="Video URL (opsiyonel)">
+      <label class="row"><input id="postPrivate" type="checkbox"><span class="small">@KUZILER</span></label>
+      <div class="row">
+        <button id="btnPost" class="btn">Paylaş</button>
+        <button id="btnRefresh">Yenile</button>
+      </div>
+    </div>
+
+    <hr style="margin:12px 0;border-color:#212532">
+    <h3>Akış</h3>
+    <div id="feed"></div>
+    <div id="empty" class="small" style="display:none">Gönderi yok</div>
+  </section>
+
+  <aside class="card">
+    <div class="small">Şu anki kullanıcı: <strong id="meName">—</strong></div>
+  </aside>
+</main>
+
+<!-- === Backend Adapter (API'ye bağlar) === -->
 <script>
 const API = ""; // aynı origin
-
 function setToken(t){ localStorage.setItem("kzmedia_token", t); }
 function getToken(){ return localStorage.getItem("kzmedia_token"); }
 function authHeader(){ const t=getToken(); return t? { "Authorization":"Bearer "+t } : {}; }
 function esc(s=""){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+const $ = (id)=>document.getElementById(id);
+function showCompose(on){ $('compose').style.display = on ? 'block' : 'none'; }
+function setMeName(n){ $('meName').textContent = n || '—'; }
+
 // Kayıt
-document.getElementById("btnRegister")?.addEventListener("click", async ()=>{
-  const u=document.getElementById("txtUser").value.trim();
-  const p=document.getElementById("txtPass").value;
-  const email=u?u+"@kzmedia.local":"";
-  const payload={ username:u, email, password:p, ownerCode:(p==="0"?"0":"") };
-  const r=await fetch(API+"/api/auth/register",{method:"POST",headers:{ "Content-Type":"application/json"},body:JSON.stringify(payload)});
+$('btnRegister').addEventListener('click', async ()=>{
+  const u=$('txtUser').value.trim(); const p=$('txtPass').value;
+  if(!u||!p) return alert("Boş olamaz");
+  const r=await fetch(API+"/api/auth/register",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,email:u+'@kz.local',password:p,ownerCode:(p==='0'?'0':'')})});
   const out=await r.json(); if(!r.ok) return alert(out.error||"Kayıt başarısız"); alert("Kayıt OK, şimdi giriş yap!");
 });
 
 // Giriş
-document.getElementById("btnLogin")?.addEventListener("click", async ()=>{
-  const u=document.getElementById("txtUser").value.trim();
-  const p=document.getElementById("txtPass").value;
-  const r=await fetch(API+"/api/auth/login",{method:"POST",headers:{ "Content-Type":"application/json"},body:JSON.stringify({usernameOrEmail:u,password:p})});
+$('btnLogin').addEventListener('click', async ()=>{
+  const u=$('txtUser').value.trim(); const p=$('txtPass').value;
+  const r=await fetch(API+"/api/auth/login",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({usernameOrEmail:u,password:p})});
   const out=await r.json(); if(!r.ok) return alert(out.error||"Giriş başarısız");
-  setToken(out.token);
-  document.getElementById("meName").textContent = out.user?.username || u;
-  loadFeed();
-  alert("Giriş OK");
+  setToken(out.token); setMeName(out.user?.username||u); showCompose(true); loadFeed();
 });
 
 // Paylaş
-document.getElementById("btnPost")?.addEventListener("click", async ()=>{
-  const text = document.getElementById("postText").value.trim();
-  const imageUrl=(document.getElementById("postImage").value||"").trim();
-  const videoUrl=(document.getElementById("postVideo").value||"").trim();
-  const isPrivate=!!document.getElementById("postPrivate").checked;
+$('btnPost').addEventListener('click', async ()=>{
+  const text=$('postText').value.trim();
+  const imageUrl=$('postImage').value.trim();
+  const videoUrl=$('postVideo').value.trim();
+  const isPrivate=$('postPrivate').checked;
   if(!text) return alert("Metin boş olamaz");
-  const r=await fetch(API+"/api/posts",{method:"POST",headers:{ "Content-Type":"application/json", ...authHeader() },body:JSON.stringify({text,imageUrl,videoUrl,private:isPrivate})});
+  const r=await fetch(API+"/api/posts",{method:"POST",headers:{'Content-Type':'application/json',...authHeader()},body:JSON.stringify({text,imageUrl,videoUrl,private:isPrivate})});
   const out=await r.json(); if(!r.ok) return alert(out.error||"Paylaşım başarısız");
-  document.getElementById("postText").value=""; document.getElementById("postImage").value=""; document.getElementById("postVideo").value=""; document.getElementById("postPrivate").checked=false;
+  $('postText').value=''; $('postImage').value=''; $('postVideo').value=''; $('postPrivate').checked=false;
   loadFeed();
 });
 
 // Yenile
-document.getElementById("btnRefresh")?.addEventListener("click", ()=>loadFeed());
+$('btnRefresh').addEventListener('click', ()=>loadFeed());
 
-// Feed override
-window.loadFeed = async function(){
-  const feed=document.getElementById("feed"); const empty=document.getElementById("empty");
-  if(feed) feed.innerHTML="";
-  const t=getToken(); if(!t){ if(empty){empty.style.display="block"; empty.textContent="Giriş yapınca akış gözükecek."} return; }
-  const r=await fetch(API+"/api/posts/feed?limit=50",{ headers:{ ...authHeader() }});
-  const posts=await r.json(); if(!r.ok) return alert(posts.error||"Akış yüklenemedi");
+// Feed
+async function loadFeed(){
+  const feed=$('feed'); const empty=$('empty'); feed.innerHTML='';
+  const t=getToken(); if(!t){ empty.style.display='block'; empty.textContent='Giriş yapınca akış gözükecek.'; return; }
+  const r=await fetch(API+"/api/posts/feed?limit=50",{headers:{...authHeader()}});
+  const arr=await r.json(); if(!r.ok) return alert(arr.error||"Akış hatası");
   let shown=0;
-  for(const p of posts){
-    const div=document.createElement("div"); div.className="post";
-    const who= p.author?.username || "—";
-    const when= p.createdAt ? new Date(p.createdAt).toLocaleString() : "";
-    const likes = Array.isArray(p.likes) ? p.likes.length : (p.likes||0);
+  for(const p of arr){
+    const div=document.createElement('div'); div.className='post';
+    const who=p.author?.username||'—';
+    const when=p.createdAt?new Date(p.createdAt).toLocaleString():'';
+    const likes=Array.isArray(p.likes)?p.likes.length:(p.likes||0);
     div.innerHTML=`
-      <div class="meta"><div class="who">${esc(who)} ${p.private ? '<span class="tag">@KUZILER</span>':''}</div><div class="small">${when}</div></div>
-      <div>${esc(p.text||"")}</div>
-      ${p.imageUrl?`<div><img src="${esc(p.imageUrl)}" alt=""></div>`:''}
-      ${p.videoUrl?`<div><video controls src="${esc(p.videoUrl)}"></video></div>`:''}
-      <div class="row" style="margin-top:8px"><button class="btn-like">❤ ${likes}</button></div>`;
-    div.querySelector(".btn-like")?.addEventListener("click", async ()=>{
-      const rr=await fetch(API+`/api/posts/${p._id}/like`,{method:"POST",headers:{ ...authHeader() }});
-      const o=await rr.json(); if(!rr.ok) return alert(o.error||"Like hatası"); div.querySelector(".btn-like").textContent=`❤ ${o.likes}`;
+      <div class="row"><strong>${esc(who)}</strong><span class="small">${when}</span></div>
+      <div>${esc(p.text||'')}</div>
+      ${p.imageUrl?`<div><img src="${esc(p.imageUrl)}" style="max-width:100%;border-radius:8px;margin-top:6px"></div>`:''}
+      ${p.videoUrl?`<div><video controls src="${esc(p.videoUrl)}" style="max-width:100%;border-radius:8px;margin-top:6px"></video></div>`:''}
+      <div class="row"><button class="btn-like">❤ ${likes}</button></div>`;
+    div.querySelector('.btn-like')?.addEventListener('click', async ()=>{
+      const rr=await fetch(API+`/api/posts/${p._id}/like`,{method:'POST',headers:{...authHeader()}});
+      const o=await rr.json(); if(!rr.ok) return alert(o.error||"Like hatası");
+      div.querySelector('.btn-like').textContent = `❤ ${o.likes}`;
     });
-    feed?.appendChild(div); shown++;
+    feed.appendChild(div); shown++;
   }
-  if(empty) empty.style.display = shown ? "none" : "block";
-};
+  empty.style.display = shown ? 'none' : 'block';
+}
 
-// Oturum varsa me + feed
-(async()=>{ const t=getToken(); if(!t) return;
-  try{ const r=await fetch(API+"/api/auth/me",{headers:{ ...authHeader() }}); if(r.ok){ const me=await r.json(); document.getElementById("meName").textContent = me?.username || "—"; loadFeed(); } }catch(_){}
+// Sayfa açılırken token varsa me + feed
+(async ()=>{
+  const t=getToken(); if(!t) return;
+  try{
+    const r=await fetch(API+"/api/auth/me",{headers:{...authHeader()}});
+    if(r.ok){ const me=await r.json(); setMeName(me?.username); showCompose(true); loadFeed(); }
+  }catch(_){}
 })();
 </script>
-<!-- KZMedia Backend Adapter END -->
 </body>
 </html>
+
