@@ -1,11 +1,9 @@
 {
   "name": "kzmedia",
   "version": "1.0.0",
-  "description": "KZMedia social media app with MongoDB",
+  "description": "KZMedia social app (MongoDB via MONGO_URL)",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "scripts": { "start": "node server.js" },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
