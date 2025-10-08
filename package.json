@@ -1,7 +1,7 @@
 {
   "name": "kzmedia",
   "version": "1.0.0",
-  "description": "KZMedia social app (MongoDB via MONGO_URL)",
+  "description": "KZMedia social app (MongoDB, auto MONGO_URL or separate env)",
   "main": "server.js",
   "scripts": { "start": "node server.js" },
   "dependencies": {
