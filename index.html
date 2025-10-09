@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>KZMedia • Tek Dosya (Yerel Demo)</title>
 <style>
+/* senin css’in aynen bırakıldı */
 :root{--bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;--primary:#4f8cff;--accent:#64d2ff;--danger:#ff5c74;--border:#212532}
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
@@ -12,11 +13,11 @@ body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);c
 .container{max-width:1100px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:900px){.container{grid-template-columns:1fr 360px}}
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
-input,textarea,select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:#e8eaed;outline:none}
+input,textarea,select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:var(--text);outline:none}
 button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
 .btn-primary{background:var(--primary);color:#fff}
 .btn-danger{background:var(--danger);color:#fff}
-.small{font-size:13px;color:#a3a7b0}
+.small{font-size:13px;color:var(--muted)}
 .feed .post{margin-top:12px;padding:12px;border-radius:10px;border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent)}
 .post .meta{display:flex;justify-content:space-between;align-items:center}
 .post img,.post video{max-width:100%;border-radius:8px;margin-top:8px}
@@ -38,18 +39,18 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
 <body>
 <div class="header">
   <div style="font-weight:800">KZMedia</div>
-  <div class="small-muted">Yerel demo — veriler server'da (postlar kaydolur), kullanıcılar RAM'de.</div>
+  <div class="small-muted">Kayıt/Giriş → Paylaş. Postlar Mongo Atlas’ta, kullanıcı/roller RAM’de.</div>
 </div>
 
 <main class="container">
-  <!-- Sol: Akış ve Paylaşım -->
+  <!-- Sol -->
   <section class="card">
     <div id="topArea">
       <div id="authBox">
         <h3>Giriş / Kayıt</h3>
         <div class="row">
-          <input id="txtUser" placeholder="Kullanıcı adı (ASCII: omer, selim, sena...)" class="field-inline">
-          <input id="txtPass" placeholder="Şifre (0 yazarsan admin)" class="field-inline" type="password">
+          <input id="txtUser" placeholder="kullanıcı (ASCII: omer, sena...)" class="field-inline">
+          <input id="txtPass" placeholder="şifre" class="field-inline" type="password">
         </div>
         <div class="row">
           <button id="btnRegister" class="btn-primary">Kayıt Ol</button>
@@ -62,7 +63,7 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
         <textarea id="postText" rows="3" placeholder="Ne paylaşmak istersin?"></textarea>
         <input id="postImage" placeholder="Resim URL (opsiyonel)">
         <input id="postVideo" placeholder="Video URL (opsiyonel)">
-        <label style="display:block;margin-top:6px"><input id="postPrivate" type="checkbox"> <span class="small">@kuzilerözel (yalnızca @KUZİLER üyeleri görür)</span></label>
+        <label style="display:block;margin-top:6px"><input id="postPrivate" type="checkbox"> <span class="small">@kuzilerözel</span></label>
         <div class="controls">
           <button id="btnPost" class="btn-primary">Paylaş</button>
           <button id="btnRefresh">Yenile</button>
@@ -77,7 +78,7 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
     <div class="footer">KZMedia</div>
   </section>
 
-  <!-- Sağ: Profil / Admin / Yönetim -->
+  <!-- Sağ -->
   <aside class="card">
     <div>
       <div class="small">Şu anki kullanıcı: <strong id="meName">—</strong> <span id="meBadge"></span></div>
@@ -96,133 +97,98 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
     <hr>
     <div id="adminPanel" style="display:none">
       <h4>Admin Paneli</h4>
-      <div class="small-muted">Sadece ADMIN görüyor.</div>
-      <div style="margin-top:8px">
-        <label>Duyuru / İlan</label>
-        <textarea id="adminAd" rows="3" placeholder="Kısa ilan/duyuru"></textarea>
-        <div class="row" style="margin-top:8px">
-          <button id="btnSaveAd" class="btn-primary">Duyuruyu Kaydet</button>
-          <button id="btnClearAd">Temizle</button>
-        </div>
+      <div class="small-muted">Sadece ADMIN görür. Admin atama: yalnız <code>ADMIN_MASTER</code> kullanıcısı.</div>
+      <div class="row" style="margin-top:8px">
+        <input id="admTarget" placeholder="hedef username" class="field-inline">
+        <button id="btnMakeAdmin" class="btn-primary">Admin Yap</button>
       </div>
-      <hr>
-      <div><h4>Kullanıcıları Yönet</h4><div id="userList"></div></div>
     </div>
-    <div id="adBox" style="margin-top:12px"></div>
   </aside>
 </main>
 
 <script>
-const API = ""; // aynı origin (ayrı servis ise tam URL yaz)
+const API = ""; // aynı origin
 const $ = (id)=>document.getElementById(id);
+function esc(s=""){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function setTok(t){ if(!t) localStorage.removeItem("kz_tok"); else localStorage.setItem("kz_tok",t); }
+function getTok(){ return localStorage.getItem("kz_tok"); }
+function auth(){ const t=getTok(); return t? {Authorization:"Bearer "+t}:{ }; }
 
-function setToken(t){ if(!t){localStorage.removeItem("kz_tok");} else {localStorage.setItem("kz_tok",t);} }
-function getToken(){ return localStorage.getItem("kz_tok"); }
-function auth(){ const t=getToken(); return t? {Authorization:"Bearer "+t}:{ }; }
-function esc(s=""){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]); }
-
+function setMeHeader(me){
+  $('meName').textContent = me?.username || '—';
+  $('meFollowers').textContent = me?.followers ?? 0;
+  $('meBadge').innerHTML = Array.isArray(me?.roles) && me.roles.includes('ADMIN') ? '<span class="admin-badge">ADMIN</span>'
+    : (Array.isArray(me?.roles)&&me.roles.includes('KUZILER')?'<span class="small-muted">@KUZILER</span>':'');
+  $('adminPanel').style.display = (Array.isArray(me?.roles) && me.roles.includes('ADMIN')) ? 'block' : 'none';
+}
 function showAuth(on){
   $('composeBox').style.display = on ? 'block' : 'none';
   $('authBox').style.display    = on ? 'none'  : 'block';
 }
-function setMeHeader(me){
-  $('meName').textContent = me?.username || '—';
-  $('meFollowers').textContent = me?.followers ?? 0;
-  $('meBadge').innerHTML = Array.isArray(me?.roles) && me.roles.includes('ADMIN')
-    ? '<span class="admin-badge">ADMIN</span>'
-    : (Array.isArray(me?.roles) && me.roles.includes('KUZILER') ? '<span class="small-muted">@KUZILER</span>' : '');
-  document.getElementById('adminPanel').style.display =
-    (Array.isArray(me?.roles) && me.roles.includes('ADMIN')) ? 'block' : 'none';
-}
 
-/* --- Auth --- */
 $('btnRegister').addEventListener('click', async ()=>{
-  const username = $('txtUser').value.trim();
-  const password = $('txtPass').value;
-  if(!username || !password) return alert("Kullanıcı ve şifre gerekli");
-  const ownerCode = (password==='0') ? '0' : '';
-  const r = await fetch(API+'/api/auth/register',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({username,email:`${username}@kz.local`,password,ownerCode})
-  });
-  const out = await r.json();
-  if(!r.ok) return alert(out.error||'Kayıt başarısız');
-  alert('Kayıt tamam. Şimdi giriş yap.');
+  const username=$('txtUser').value.trim(); const password=$('txtPass').value;
+  if(!username||!password) return alert("Kullanıcı ve şifre gerekli");
+  const r=await fetch(API+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,email:username+'@kz.local',password})});
+  const out=await r.json(); if(!r.ok) return alert(out.error||'Kayıt başarısız');
+  alert('Kayıt OK, şimdi giriş yap.');
 });
 
 $('btnLogin').addEventListener('click', async ()=>{
-  const u = $('txtUser').value.trim();
-  const p = $('txtPass').value;
-  const r = await fetch(API+'/api/auth/login',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({usernameOrEmail:u,password:p})
-  });
-  const out = await r.json();
-  if(!r.ok) return alert(out.error||'Giriş başarısız');
-  setToken(out.token);
-  showAuth(true);
-  setMeHeader(out.user);
-  addAuthButtons(out.user);
-  await loadFeed();
+  const u=$('txtUser').value.trim(); const p=$('txtPass').value;
+  const r=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usernameOrEmail:u,password:p})});
+  const out=await r.json(); if(!r.ok) return alert(out.error||'Giriş başarısız');
+  setTok(out.token); showAuth(true); setMeHeader(out.user); addAuthButtons(out.user); loadFeed();
 });
 
 function addAuthButtons(me){
   const box=$('authButtons'); box.innerHTML='';
   if(me){
-    const b1=document.createElement('button'); b1.textContent='Profilim';
-    b1.onclick=()=>alert('Profil: '+(me.username||'—'));
-    const b2=document.createElement('button'); b2.textContent='Çıkış';
-    b2.onclick=()=>{ setToken(''); showAuth(false); $('feed').innerHTML=''; $('empty').style.display='block'; };
+    const b1=document.createElement('button'); b1.textContent='Profilim'; b1.onclick=()=>alert('Profil: '+(me.username||'—'));
+    const b2=document.createElement('button'); b2.textContent='Çıkış'; b2.onclick=()=>{ setTok(''); showAuth(false); $('feed').innerHTML=''; $('empty').style.display='block'; };
     box.appendChild(b1); box.appendChild(b2);
   }
 }
 
-/* --- Paylaş --- */
-$('btnPost').addEventListener('click', async ()=>{
-  if(!getToken()) return alert('Önce giriş yap');
-  const text = $('postText').value.trim();
-  const imageUrl = $('postImage').value.trim();
-  const videoUrl = $('postVideo').value.trim();
-  const isPrivate = $('postPrivate').checked;
-  if(!text) return alert('Metin boş olamaz');
-  const r = await fetch(API+'/api/posts',{
-    method:'POST',
-    headers:{'Content-Type':'application/json',...auth()},
-    body:JSON.stringify({text,imageUrl,videoUrl,private:isPrivate})
-  });
-  const out = await r.json();
-  if(!r.ok) return alert(out.error||'Paylaşım başarısız');
-  $('postText').value=''; $('postImage').value=''; $('postVideo').value=''; $('postPrivate').checked=false;
-  await loadFeed();
+// Admin atama: sadece ADMIN_MASTER için çalışacak (server kontrol ediyor)
+$('btnMakeAdmin').addEventListener('click', async ()=>{
+  const target=$('admTarget').value.trim(); if(!target) return alert('hedef kullanıcı yaz');
+  const r=await fetch(API+'/api/admin/make-admin',{method:'POST',headers:{'Content-Type':'application/json',...auth()},body:JSON.stringify({targetUsername:target})});
+  const out=await r.json(); if(!r.ok) return alert(out.error||'Yetki yok / hata');
+  alert(target+' artık ADMIN');
 });
 
-/* --- Feed --- */
-$('btnRefresh').addEventListener('click', ()=>loadFeed());
+// Paylaş
+$('btnPost').addEventListener('click', async ()=>{
+  if(!getTok()) return alert('Önce giriş yap');
+  const text=$('postText').value.trim(); const imageUrl=$('postImage').value.trim(); const videoUrl=$('postVideo').value.trim();
+  const isPrivate=$('postPrivate').checked;
+  if(!text) return alert('Metin boş olamaz');
+  const r=await fetch(API+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json',...auth()},body:JSON.stringify({text,imageUrl,videoUrl,private:isPrivate})});
+  const out=await r.json(); if(!r.ok) return alert(out.error||'Paylaşım başarısız');
+  $('postText').value=''; $('postImage').value=''; $('postVideo').value=''; $('postPrivate').checked=false; loadFeed();
+});
+
+// Arama
 $('btnSearch').addEventListener('click', ()=>loadFeed());
 $('btnClear').addEventListener('click', ()=>{ $('q').value=''; loadFeed(); });
+$('btnRefresh').addEventListener('click', ()=>loadFeed());
 
+// Feed
 async function loadFeed(){
-  const feed = $('feed'); feed.innerHTML='';
-  const empty = $('empty');
-  if(!getToken()){ empty.style.display='block'; empty.textContent='Giriş yapınca akış gözükecek.'; return; }
-
-  const r = await fetch(API+'/api/posts/feed?limit=50',{ headers:{...auth()} });
-  const arr = await r.json();
-  if(!r.ok){ empty.style.display='block'; empty.textContent = (arr.error||'Akış hatası'); return; }
-
-  const q = $('q').value.trim().toLowerCase();
-  let shown=0;
+  const feed=$('feed'); feed.innerHTML=''; const empty=$('empty');
+  if(!getTok()){ empty.style.display='block'; empty.textContent='Giriş yapınca akış gözükecek.'; return; }
+  const r=await fetch(API+'/api/posts/feed?limit=50',{headers:{...auth()}});
+  const arr=await r.json(); if(!r.ok){ empty.style.display='block'; empty.textContent=arr.error||'Akış hatası'; return; }
+  const q=$('q').value.trim().toLowerCase(); let shown=0;
   for(const p of arr){
     if(q && !((p.text||'').toLowerCase().includes(q) || (p.author?.username||'').toLowerCase().includes(q))) continue;
+    const who=p.author?.username||p.authorUsername||'—';
+    const roles=p.author?.roles||p.authorRoles||[]; const tag = roles.includes('KUZILER')?'<span class="tag">@KUZILER</span>':'';
+    const when=p.createdAt?new Date(p.createdAt).toLocaleString():'';
+    const likeCount = typeof p.likesCount==='number'? p.likesCount : 0;
 
-    const who = p.author?.username || '—';
-    const roles = p.author?.roles || [];
-    const tag = roles.includes('KUZILER') ? '<span class="tag">@KUZILER</span>' : '';
-    const when = p.createdAt ? new Date(p.createdAt).toLocaleString() : '';
-    const likeCount = (typeof p.likesCount === 'number') ? p.likesCount : 0;
-
-    const div = document.createElement('div');
-    div.className = 'post';
+    const div=document.createElement('div'); div.className='post';
     div.innerHTML = `
       <div class="meta"><div class="who">${esc(who)} ${tag}</div><div class="small">${when}</div></div>
       <div>${esc(p.text||'')}</div>
@@ -234,21 +200,16 @@ async function loadFeed(){
         <span class="small-muted">@${esc(who)}</span>
       </div>
     `;
-
     div.querySelector('.btn-like').addEventListener('click', async ()=>{
-      const rr = await fetch(API+`/api/posts/${p._id}/like`,{ method:'POST' });
-      const o  = await rr.json();
-      if(!rr.ok) return alert(o.error||'Like hatası');
-      div.querySelector('.lk').textContent = o.likes;
+      const rr=await fetch(API+`/api/posts/${p._id||p.id}/like`,{method:'POST'});
+      const o=await rr.json(); if(!rr.ok) return alert(o.error||'Like hatası');
+      div.querySelector('.lk').textContent=o.likes;
     });
-
     div.querySelector('.btn-follow').addEventListener('click', async ()=>{
-      if(!p.author?.username) return alert('Kullanıcı yok');
-      const rr = await fetch(API+`/api/users/${encodeURIComponent(p.author.username)}/follow`,{ method:'POST' });
-      const o  = await rr.json();
-      if(!rr.ok) return alert(o.error||'Takip hatası');
+      if(!who) return;
+      const rr=await fetch(API+`/api/users/${encodeURIComponent(who)}/follow`,{method:'POST'});
+      const o=await rr.json(); if(!rr.ok) return alert(o.error||'Takip hatası');
       div.querySelector('.btn-follow').textContent = o.following ? 'Takipten çık' : 'Takip et';
-      // sağ üst panelde kendi takipçi sayını güncellemek istersen burada /api/auth/me çekebilirsin
     });
 
     feed.appendChild(div); shown++;
@@ -256,32 +217,12 @@ async function loadFeed(){
   empty.style.display = shown ? 'none' : 'block';
 }
 
-/* --- Admin duyuru (görsel) --- */
-function renderAd(){
-  const box = $('adBox'); box.innerHTML='';
-  const val = $('adminAd')?.value?.trim();
-  if(val){ const d=document.createElement('div'); d.className='notice'; d.textContent=val; box.appendChild(d); }
-}
-function checkAdmin(){ return true; }
-$('btnSaveAd').addEventListener('click', ()=>{ if(!checkAdmin()) return; renderAd(); alert('Duyuru gösterildi'); });
-$('btnClearAd').addEventListener('click', ()=>{ $('adminAd').value=''; renderAd(); });
-
-/* --- Başlangıç --- */
+// açılış
 (async ()=>{
-  try{
-    // oturum varsa me çek
-    if(getToken()){
-      const r = await fetch(API+'/api/auth/me',{ headers:{...auth()} });
-      if(r.ok){
-        const me = await r.json();
-        setMeHeader(me);
-        addAuthButtons(me);
-        showAuth(true);
-        await loadFeed();
-        return;
-      }
-    }
-  }catch(_){}
+  if(getTok()){
+    const r=await fetch(API+'/api/auth/me',{headers:{...auth()}});
+    if(r.ok){ const me=await r.json(); setMeHeader(me); showAuth(true); loadFeed(); return; }
+  }
   showAuth(false);
 })();
 </script>
