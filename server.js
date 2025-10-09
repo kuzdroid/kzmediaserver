@@ -1,9 +1,9 @@
 // KZMedia – HİBRİT: Kullanıcılar RAM'de, POSTLAR MongoDB Atlas'ta
 // ENV (Render → Environment):
 //   JWT_KEY      = uzun-bir-gizli-anahtar
-//   MONGO_URL    = mongodb+srv://USER:PASS@HOST/DBNAME?retryWrites=true&w=majority
-//   ADMIN_MASTER = sadece bu username başka kullanıcıyı ADMIN yapabilir (ör: omer)
-// Not: "0 yazınca admin" LOJİĞİ YOK. Kimse şifreyle admin olamaz.
+//   MONGO_URL    = mongodb+srv://USER:PASS@HOST/kzmedia?retryWrites=true&w=majority
+//   ADMIN_MASTER = kursatomer@KUZİLER    (varsayılan)
+// Not: "0 yazınca admin" yok.
 
 const express = require("express");
 const helmet = require("helmet");
@@ -17,7 +17,8 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_KEY = (process.env.JWT_KEY || "kzmedia-secret-change").trim();
-const ADMIN_MASTER = (process.env.ADMIN_MASTER || "omer").trim(); // sadece bu user admin atayabilir
+const ADMIN_MASTER = (process.env.ADMIN_MASTER || "kursatomer@KUZİLER").trim();
+const MONGO_URL = (process.env.MONGO_URL || "").trim();
 
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -29,17 +30,16 @@ app.use("/api", rateLimit({ windowMs: 60 * 1000, max: 300 }));
 
 /* ------------- Mongo: SADECE POSTLAR ------------- */
 let mongoReady = false;
-const MONGO_URL = (process.env.MONGO_URL || "").trim();
 
 const PostSchema = new mongoose.Schema(
   {
-    authorUsername: { type: String, required: true },  // kullanıcıyı RAM'den alıyoruz; buraya string snapshot
-    authorRoles:    { type: [String], default: [] },   // görüntü için snapshot
+    authorUsername: { type: String, required: true },
+    authorRoles:    { type: [String], default: [] },
     text:     { type: String, required: true, maxlength: 500 },
     imageUrl: { type: String, default: "" },
     videoUrl: { type: String, default: "" },
-    private:  { type: Boolean, default: false },       // @KUZILER
-    likesIp:  { type: [String], default: [] }          // IP-bazlı like toggle
+    private:  { type: Boolean, default: false },
+    likesIp:  { type: [String], default: [] }
   },
   { timestamps: true }
 );
@@ -88,22 +88,25 @@ function requireAuth(req, res, next) {
 // user: { username, email, passwordHash, roles:[], followers:0, followersIp:[] }
 const users = new Map();
 
-// İstersen başlangıç kullanıcıları (admin olmayan sıradan kullanıcılardır)
-// Şifre: 1234. ADMIN değil.
+// Hazır üyeler (şifre hepsinde "KUZİLER"); kursatomer admin
 (async () => {
-  const demo = [
-    { u: "kursatomer", e: "kursatomer@kz.local" },
-    { u: "sena",       e: "sena@kz.local" },
-    { u: "elalye",     e: "elalye@kz.local" },
-    { u: "mrselim",    e: "mrselim@kz.local" }
+  const basePass = "KUZİLER";
+  const ph = await bcrypt.hash(basePass, 10);
+  const seed = [
+    { u: "kursatomer@KUZİLER", roles: ["ADMIN","KUZILER"] },
+    { u: "MR.Selim@KUZİLER",   roles: ["KUZILER"] },
+    { u: "elalye@KUZİLER",     roles: ["KUZILER"] },
+    { u: "sena@KUZİLER",       roles: ["KUZILER"] }
   ];
-  for (const d of demo) {
-    if (!users.has(d.u)) {
-      users.set(d.u, {
-        username: d.u,
-        email: d.e,
-        passwordHash: await bcrypt.hash("1234", 10),
-        roles: [], followers: 0, followersIp: []
+  for (const s of seed) {
+    if (!users.has(s.u)) {
+      users.set(s.u, {
+        username: s.u,
+        email: (s.u.replace(/\s/g,'') + "@kz.local"),
+        passwordHash: ph,
+        roles: s.roles.slice(),
+        followers: 0,
+        followersIp: []
       });
     }
   }
@@ -120,21 +123,22 @@ app.get("/health", (req, res) => {
 });
 
 /* ------------- Auth ------------- */
+// NOT: username ASCII kısıtı YOK. Türkçe/@/nokta kullanılabilir.
 app.post("/api/auth/register", async (req, res) => {
   try {
     let { username, email, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: "Eksik alanlar" });
     username = String(username).trim();
-
-    if (!/^[A-Za-z0-9._-]{3,32}$/.test(username)) {
-      return res.status(400).json({ error: "Kullanıcı adı ASCII (3-32): A-Z a-z 0-9 . _ -" });
-    }
     if (users.has(username)) return res.status(409).json({ error: "Kullanıcı adı kullanımda" });
 
     const passwordHash = await bcrypt.hash(password, 10);
     users.set(username, {
-      username, email: email || `${username}@kz.local`,
-      passwordHash, roles: [], followers: 0, followersIp: []
+      username,
+      email: email || `${username.replace(/\s/g,'')}@kz.local`,
+      passwordHash,
+      roles: [],
+      followers: 0,
+      followersIp: []
     });
 
     res.status(201).json({ id: username, username, roles: [] });
@@ -167,7 +171,7 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
   res.json({ username: u.username, roles: u.roles, followers: u.followers });
 });
 
-/* ------------- Admin: sadece ADMIN_MASTER admin atayabilir ------------- */
+/* ------------- Admin: sadece ADMIN_MASTER ------------- */
 app.post("/api/admin/make-admin", requireAuth, async (req, res) => {
   try {
     if (req.username !== ADMIN_MASTER) return res.status(403).json({ error: "Yetki yok" });
@@ -223,7 +227,7 @@ app.get("/api/posts/feed", requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-/* ------------- Like (IP toggle, auth gerekmez) ------------- */
+/* ------------- Like (IP toggle) ------------- */
 app.post("/api/posts/:id/like", async (req, res) => {
   if (!mongoReady) return res.status(503).json({ error: "DB hazır değil (postlar)" });
   try {
@@ -242,7 +246,8 @@ app.post("/api/posts/:id/like", async (req, res) => {
 /* ------------- Follow (IP toggle, RAM) ------------- */
 app.post("/api/users/:username/follow", async (req, res) => {
   try {
-    const u = users.get(req.params.username);
+    const key = decodeURIComponent(req.params.username);
+    const u = users.get(key);
     if (!u) return res.status(404).json({ error: "Kullanıcı yok" });
 
     const ip = getIp(req);
