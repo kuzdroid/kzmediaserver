@@ -138,41 +138,35 @@ button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
 </main>
 
 <script>
-/* === SADECE SCRIPT GÜNCEL ===
-   - Senin layout aynı.
-   - Backend API çağrıları: /api/auth/*, /api/posts/*, /api/posts/:id/like, /api/users/:username/follow
-   - IP'ye göre 1 kez LIKE/FOLLOW, tekrar basınca geri alır.
-*/
-
-const API = ""; // aynı origin
+/* === Backend adapter (IP-like/follow; senin düzen korunuyor) === */
+const API = ""; // aynı origin. Ayrı domain ise buraya tam URL yaz.
 const $ = (id)=>document.getElementById(id);
 
-/* -------- Token & UI yardımcıları -------- */
 function setToken(t){ if(!t){localStorage.removeItem("kz_tok");} else {localStorage.setItem("kz_tok",t);} }
 function getToken(){ return localStorage.getItem("kz_tok"); }
 function auth(){ const t=getToken(); return t? {Authorization:"Bearer "+t}:{ }; }
 function esc(s=""){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]); }
 
 function showAuth(on){
-  $('composeBox').style.display = on ? 'block' : 'none';
-  $('authBox').style.display    = on ? 'none'  : 'block';
+  document.getElementById('composeBox').style.display = on ? 'block' : 'none';
+  document.getElementById('authBox').style.display    = on ? 'none'  : 'block';
 }
 function setMeHeader(me){
-  $('meName').textContent = me?.username || '—';
-  $('meFollowers').textContent = me?.followers ?? 0;
-  $('meBadge').innerHTML = Array.isArray(me?.roles) && me.roles.includes('ADMIN')
+  document.getElementById('meName').textContent = me?.username || '—';
+  document.getElementById('meFollowers').textContent = me?.followers ?? 0;
+  document.getElementById('meBadge').innerHTML = Array.isArray(me?.roles) && me.roles.includes('ADMIN')
     ? '<span class="admin-badge">ADMIN</span>'
     : (Array.isArray(me?.roles) && me.roles.includes('KUZILER') ? '<span class="small-muted">@KUZILER</span>' : '');
   document.getElementById('adminPanel').style.display =
     (Array.isArray(me?.roles) && me.roles.includes('ADMIN')) ? 'block' : 'none';
 }
 
-/* -------- Auth -------- */
-$('btnRegister').addEventListener('click', async ()=>{
-  const username = $('txtUser').value.trim();
-  const password = $('txtPass').value;
+/* --- Auth --- */
+document.getElementById('btnRegister').addEventListener('click', async ()=>{
+  const username = document.getElementById('txtUser').value.trim();
+  const password = document.getElementById('txtPass').value;
   if(!username || !password) return alert("Kullanıcı ve şifre gerekli");
-  const ownerCode = (password==='0') ? '0' : ''; // 0 yazarsa admin
+  const ownerCode = (password==='0') ? '0' : ''; // 0 → ADMIN+KUZILER
   const r = await fetch(API+'/api/auth/register',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({username,email:`${username}@kz.local`,password,ownerCode})
@@ -182,9 +176,9 @@ $('btnRegister').addEventListener('click', async ()=>{
   alert('Kayıt tamam. Şimdi giriş yap.');
 });
 
-$('btnLogin').addEventListener('click', async ()=>{
-  const u = $('txtUser').value.trim();
-  const p = $('txtPass').value;
+document.getElementById('btnLogin').addEventListener('click', async ()=>{
+  const u = document.getElementById('txtUser').value.trim();
+  const p = document.getElementById('txtPass').value;
   const r = await fetch(API+'/api/auth/login',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({usernameOrEmail:u,password:p})
@@ -199,23 +193,23 @@ $('btnLogin').addEventListener('click', async ()=>{
 });
 
 function addAuthButtons(me){
-  const box=$('authButtons'); box.innerHTML='';
+  const box=document.getElementById('authButtons'); box.innerHTML='';
   if(me){
     const b1=document.createElement('button'); b1.textContent='Profilim';
     b1.onclick=()=>alert('Profil: '+(me.username||'—'));
     const b2=document.createElement('button'); b2.textContent='Çıkış';
-    b2.onclick=()=>{ setToken(''); showAuth(false); $('feed').innerHTML=''; $('empty').style.display='block'; };
+    b2.onclick=()=>{ setToken(''); showAuth(false); document.getElementById('feed').innerHTML=''; document.getElementById('empty').style.display='block'; };
     box.appendChild(b1); box.appendChild(b2);
   }
 }
 
-/* -------- Paylaş -------- */
-$('btnPost').addEventListener('click', async ()=>{
+/* --- Paylaş --- */
+document.getElementById('btnPost').addEventListener('click', async ()=>{
   if(!getToken()) return alert('Önce giriş yap');
-  const text = $('postText').value.trim();
-  const imageUrl = $('postImage').value.trim();
-  const videoUrl = $('postVideo').value.trim();
-  const isPrivate = $('postPrivate').checked;
+  const text = document.getElementById('postText').value.trim();
+  const imageUrl = document.getElementById('postImage').value.trim();
+  const videoUrl = document.getElementById('postVideo').value.trim();
+  const isPrivate = document.getElementById('postPrivate').checked;
   if(!text) return alert('Metin boş olamaz');
   const r = await fetch(API+'/api/posts',{
     method:'POST',
@@ -224,25 +218,28 @@ $('btnPost').addEventListener('click', async ()=>{
   });
   const out = await r.json();
   if(!r.ok) return alert(out.error||'Paylaşım başarısız');
-  $('postText').value=''; $('postImage').value=''; $('postVideo').value=''; $('postPrivate').checked=false;
+  document.getElementById('postText').value=''; document.getElementById('postImage').value='';
+  document.getElementById('postVideo').value=''; document.getElementById('postPrivate').checked=false;
   await loadFeed();
 });
 
-/* -------- Feed -------- */
-$('btnRefresh').addEventListener('click', ()=>loadFeed());
-$('btnSearch')?.addEventListener('click', ()=>loadFeed());
-$('btnClear')?.addEventListener('click', ()=>{ $('q').value=''; loadFeed(); });
+/* --- Feed --- */
+document.getElementById('btnRefresh').addEventListener('click', ()=>loadFeed());
+document.getElementById('btnSearch').addEventListener('click', ()=>loadFeed());
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  document.getElementById('q').value=''; loadFeed();
+});
 
 async function loadFeed(){
-  const feed = $('feed'); feed.innerHTML='';
-  const empty = $('empty');
+  const feed = document.getElementById('feed'); feed.innerHTML='';
+  const empty = document.getElementById('empty');
   if(!getToken()){ empty.style.display='block'; empty.textContent='Giriş yapınca akış gözükecek.'; return; }
 
   const r = await fetch(API+'/api/posts/feed?limit=50',{ headers:{...auth()} });
   const arr = await r.json();
   if(!r.ok){ empty.style.display='block'; empty.textContent = (arr.error||'Akış hatası'); return; }
 
-  const q = $('q')?.value.trim().toLowerCase() || '';
+  const q = document.getElementById('q').value.trim().toLowerCase();
   let shown=0;
   for(const p of arr){
     if(q && !((p.text||'').toLowerCase().includes(q) || (p.author?.username||'').toLowerCase().includes(q))) continue;
@@ -251,10 +248,11 @@ async function loadFeed(){
     const roles = p.author?.roles || [];
     const tag = roles.includes('KUZILER') ? '<span class="tag">@KUZILER</span>' : '';
     const when = p.createdAt ? new Date(p.createdAt).toLocaleString() : '';
-    const likeCount = (typeof p.likesCount === 'number') ? p.likesCount
-                      : (Array.isArray(p.likes) ? p.likes.length : (p.likes||0));
+    const likeCount = (typeof p.likesCount === 'number') ? p.likesCount : 0;
 
-    const rowHtml = `
+    const div = document.createElement('div');
+    div.className = 'post';
+    div.innerHTML = `
       <div class="meta"><div class="who">${esc(who)} ${tag}</div><div class="small">${when}</div></div>
       <div>${esc(p.text||'')}</div>
       ${p.imageUrl?`<div><img src="${esc(p.imageUrl)}" alt=""></div>`:''}
@@ -266,27 +264,22 @@ async function loadFeed(){
       </div>
     `;
 
-    const div = document.createElement('div');
-    div.className = 'post';
-    div.innerHTML = rowHtml;
-
-    // LIKE (IP-toggle, auth gerekmez)
-    div.querySelector('.btn-like')?.addEventListener('click', async ()=>{
+    // LIKE (IP toggle)
+    div.querySelector('.btn-like').addEventListener('click', async ()=>{
       const rr = await fetch(API+`/api/posts/${p._id}/like`,{ method:'POST' });
       const o  = await rr.json();
       if(!rr.ok) return alert(o.error||'Like hatası');
       div.querySelector('.lk').textContent = o.likes;
     });
 
-    // FOLLOW (IP-toggle, auth gerekmez) – hedef: gönderi sahibi
-    div.querySelector('.btn-follow')?.addEventListener('click', async ()=>{
-      const uname = p.author?.username;
-      if(!uname) return alert('Kullanıcı yok');
-      const rr = await fetch(API+`/api/users/${encodeURIComponent(uname)}/follow`,{ method:'POST' });
+    // FOLLOW (IP toggle) — gönderi sahibini hedefler
+    div.querySelector('.btn-follow').addEventListener('click', async ()=>{
+      if(!p.author?.username) return alert('Kullanıcı yok');
+      const rr = await fetch(API+`/api/users/${encodeURIComponent(p.author.username)}/follow`,{ method:'POST' });
       const o  = await rr.json();
       if(!rr.ok) return alert(o.error||'Takip hatası');
       div.querySelector('.btn-follow').textContent = o.following ? 'Takipten çık' : 'Takip et';
-      // sağ üstte kendi profilin açık ise meFollowers güncellemek istersen burada tekrar /api/auth/me çekebilirsin
+      // sağ panelde kendi profilinse istersen /api/auth/me çekip sayıyı tazele
     });
 
     feed.appendChild(div); shown++;
@@ -294,17 +287,17 @@ async function loadFeed(){
   empty.style.display = shown ? 'none' : 'block';
 }
 
-/* -------- Admin (senin UI aynı, backend eklenmediği için local çalışmıyor) -------- */
+/* --- Admin UI (yalnız görsel) --- */
 function renderAd(){
-  const box = $('adBox'); box.innerHTML='';
-  const val = $('adminAd')?.value?.trim();
+  const box = document.getElementById('adBox'); box.innerHTML='';
+  const val = document.getElementById('adminAd')?.value?.trim();
   if(val){ const d=document.createElement('div'); d.className='notice'; d.textContent=val; box.appendChild(d); }
 }
-function checkAdmin(){ return true; } // UI için placeholder
-$('btnSaveAd')?.addEventListener('click', ()=>{ if(!checkAdmin()) return; renderAd(); alert('Duyuru (UI) gösterildi'); });
-$('btnClearAd')?.addEventListener('click', ()=>{ $('adminAd').value=''; renderAd(); });
+function checkAdmin(){ return true; }
+document.getElementById('btnSaveAd').addEventListener('click', ()=>{ if(!checkAdmin()) return; renderAd(); alert('Duyuru gösterildi (UI)'); });
+document.getElementById('btnClearAd').addEventListener('click', ()=>{ document.getElementById('adminAd').value=''; renderAd(); });
 
-/* -------- Başlangıç -------- */
+/* --- İlk yükleme --- */
 (async ()=>{
   if(getToken()){
     try{
