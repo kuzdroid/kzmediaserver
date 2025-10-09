@@ -1,13 +1,8 @@
-// KZMedia - Mongo Atlas Backend (Oto MONGO_URL veya 4'lü env)
-// Çalışma sırası:
-// 1) Eğer MONGO_URL varsa -> onu kullanır
-// 2) Yoksa MONGO_HOST/MONGO_USER/MONGO_PASS/DB_NAME ile bağlanır
-//
-// Önerilen en basit kurulum (Render Environment):
-//   MONGO_URL = mongodb+srv://USER:PASS@HOST/DBNAME?retryWrites=true&w=majority
+// KZMedia – Mongo Atlas Backend (MONGO_URL veya 4'lü env) + IP-tabanlı Like/Follow Toggle
+// ENV (Render):
+//   MONGO_URL = mongodb+srv://USER:PASS@HOST/DB?retryWrites=true&w=majority
 //   JWT_KEY   = uzun-bir-gizli-anahtar
-//
-// Not: Şifrede özel karakter varsa MONGO_URL'de URL-encode et (örn @ => %40)
+//   (veya 4'lü: MONGO_HOST, MONGO_USER, MONGO_PASS, DB_NAME)
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -22,17 +17,16 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const JWT_KEY = (process.env.JWT_KEY || "dummy-secret-kzmedia").trim();
 
-/* ---------------- Middleware ---------------- */
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-// Rate limits
+// sınırlamalar (hafif)
 app.use("/api/auth", rateLimit({ windowMs: 10 * 60 * 1000, max: 60 }));
-app.use("/api", rateLimit({ windowMs: 60 * 1000, max: 120 }));
+app.use("/api", rateLimit({ windowMs: 60 * 1000, max: 240 }));
 
-/* ---------------- Mongo bağlantısı (oto mod) ---------------- */
+/* --------- Mongo bağlantısı (oto) --------- */
 const MONGO_URL = (process.env.MONGO_URL || "").trim();
 const HOST = (process.env.MONGO_HOST || "").trim();
 const USER = (process.env.MONGO_USER || "").trim();
@@ -53,7 +47,7 @@ async function connectMongo() {
     } else {
       const uri = buildUriFromParts();
       if (!uri || !USER || PASS === "") {
-        console.error("❌ Mongo ENV eksik: ya MONGO_URL verin ya da MONGO_HOST/MONGO_USER/MONGO_PASS/DB_NAME doldurun.");
+        console.error("❌ Mongo ENV eksik");
       } else {
         await mongoose.connect(uri, {
           dbName: DB,
@@ -70,36 +64,24 @@ async function connectMongo() {
   } catch (err) {
     mongoReady = false;
     console.error("❌ MongoDB bağlantı hatası:", err.message);
-    setTimeout(connectMongo, 10_000); // 10 sn sonra tekrar dener
+    setTimeout(connectMongo, 10000);
   }
 }
 connectMongo();
 
-/* ---------------- Debug (şifreyi sızdırmaz) ---------------- */
-app.get("/debug/creds", (req, res) => {
-  res.json({
-    mode: MONGO_URL ? "MONGO_URL" : "SEPARATE",
-    MONGO_URL: MONGO_URL ? (MONGO_URL.slice(0, 32) + "...") : null,
-    host: HOST || null,
-    user: USER || null,
-    db: DB || null,
-    passLength: PASS ? PASS.length : (MONGO_URL ? "(in-url)" : 0),
-    dbState: mongoose.connection.readyState // 0 d,1 c,2 ing,3 dis-ing
-  });
-});
-
-/* ---------------- Modeller ---------------- */
+/* --------- Modeller --------- */
 const { Schema, model } = mongoose;
 
 const User = model(
   "User",
   new Schema(
     {
-      username: { type: String, unique: true, required: true },
+      username: { type: String, unique: true, required: true, minlength: 3, maxlength: 24 },
       email: { type: String, unique: true, sparse: true },
       passwordHash: { type: String, required: true },
       roles: { type: [String], default: [] }, // ["ADMIN","KUZILER"]
       followers: { type: Number, default: 0 },
+      followersIp: { type: [String], default: [] }, // IP-tabanlı takip
       meta: { type: Object, default: {} },
     },
     { timestamps: true }
@@ -114,14 +96,15 @@ const Post = model(
       text: { type: String, required: true, maxlength: 500 },
       imageUrl: { type: String, default: "" },
       videoUrl: { type: String, default: "" },
-      private: { type: Boolean, default: false }, // @KUZILER özel
-      likes: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      private: { type: Boolean, default: false },
+      likes: [{ type: Schema.Types.ObjectId, ref: "User" }], // (eski user-bazlı, dursun)
+      likesIp: { type: [String], default: [] },              // IP-bazlı like (kullanılacak)
     },
     { timestamps: true }
   )
 );
 
-/* ---------------- Yardımcı ---------------- */
+/* --------- Yardımcı --------- */
 function signToken(id) { return jwt.sign({ userId: id }, JWT_KEY, { expiresIn: "7d" }); }
 function requireAuth(req, res, next) {
   const t = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
@@ -129,16 +112,13 @@ function requireAuth(req, res, next) {
   try { req.userId = jwt.verify(t, JWT_KEY).userId; next(); }
   catch { return res.status(401).json({ error: "Token geçersiz" }); }
 }
-async function isAdmin(userId) {
-  const u = await User.findById(userId);
-  return !!(u && u.roles && u.roles.includes("ADMIN"));
-}
-async function isKuziler(userId) {
-  const u = await User.findById(userId);
-  return !!(u && u.roles && u.roles.includes("KUZILER"));
+function getClientIp(req){
+  // trust proxy açık; req.ip uygun. XFF'den ilk IP'yi de temizleyelim:
+  const xf = (req.headers["x-forwarded-for"] || "").toString().split(",")[0].trim();
+  return xf || req.ip || req.connection?.remoteAddress || "0.0.0.0";
 }
 
-/* ---------------- Health ---------------- */
+/* --------- Health / Debug --------- */
 app.get("/health", (req, res) => {
   const states = ["disconnected", "connected", "connecting", "disconnecting"];
   res.json({ ok: true, db: states[mongoose.connection.readyState] || "unknown" });
@@ -147,7 +127,7 @@ app.get("/db/check", (req, res) => {
   res.json({ ok: mongoose.connection.readyState === 1, state: mongoose.connection.readyState });
 });
 
-/* ---------------- Auth ---------------- */
+/* --------- Auth --------- */
 app.post("/api/auth/register", async (req, res) => {
   if (!mongoReady) return res.status(503).json({ error: "DB hazır değil" });
   try {
@@ -193,7 +173,7 @@ app.get("/api/auth/me", requireAuth, async (req, res) => {
   res.json(u);
 });
 
-/* ---------------- Posts ---------------- */
+/* --------- Postlar --------- */
 app.post("/api/posts", requireAuth, async (req, res) => {
   if (!mongoReady) return res.status(503).json({ error: "DB hazır değil" });
   try {
@@ -214,79 +194,83 @@ app.post("/api/posts", requireAuth, async (req, res) => {
   }
 });
 
+// FEED (auth gerekli – mevcut mantık)
 app.get("/api/posts/feed", requireAuth, async (req, res) => {
   if (!mongoReady) return res.status(503).json({ error: "DB hazır değil" });
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-    const userIsK = await isKuziler(req.userId);
+    const user = await User.findById(req.userId).select("roles");
+    const isK = !!(user && user.roles && user.roles.includes("KUZILER"));
     const posts = await Post.find().sort({ createdAt: -1 }).limit(limit).populate("author", "username roles");
-    const filtered = posts.filter(p => !p.private || userIsK || String(p.author._id) === String(req.userId));
-    res.json(filtered);
+    const filtered = posts.filter(p => !p.private || isK || String(p.author._id) === String(req.userId));
+    // ip-like sayısını da cevapta gönder
+    const withCounts = filtered.map(p => ({
+      ...p.toObject(),
+      likesCount: Array.isArray(p.likesIp) ? p.likesIp.length : 0
+    }));
+    res.json(withCounts);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.post("/api/posts/:id/like", requireAuth, async (req, res) => {
+/* --------- LIKE (IP-toggle) --------- */
+// Not: auth GEREKMEZ → herkes 1 IP = 1 like; tekrar basarsa like geri alınır.
+app.post("/api/posts/:id/like", async (req, res) => {
   if (!mongoReady) return res.status(503).json({ error: "DB hazır değil" });
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: "Gönderi bulunamadı" });
 
-    const idx = post.likes.findIndex(u => String(u) === String(req.userId));
-    if (idx === -1) post.likes.push(req.userId); else post.likes.splice(idx, 1);
+    const ip = getClientIp(req);
+    const idx = post.likesIp.indexOf(ip);
+    let liked;
+    if (idx === -1) { post.likesIp.push(ip); liked = true; }
+    else { post.likesIp.splice(idx, 1); liked = false; }
+
     await post.save();
-    res.json({ likes: post.likes.length, liked: idx === -1 });
+    res.json({ liked, likes: post.likesIp.length });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.delete("/api/posts/:id", requireAuth, async (req, res) => {
+/* --------- FOLLOW (IP-toggle) --------- */
+// Hedef kullanıcıyı IP bazlı takip et/çıkar. auth GEREKMEZ.
+app.post("/api/users/:username/follow", async (req, res) => {
   if (!mongoReady) return res.status(503).json({ error: "DB hazır değil" });
   try {
-    const post = await Post.findById(req.params.id).populate("author", "_id");
-    if (!post) return res.status(404).json({ error: "Gönderi bulunamadı" });
-    const isAuthor = String(post.author._id) === String(req.userId);
-    const admin = await isAdmin(req.userId);
-    if (!isAuthor && !admin) return res.status(403).json({ error: "Yetki yok" });
-    await Post.deleteOne({ _id: post._id });
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-/* ---------------- Troll (sadece kursatomer @ KUZILER) ---------------- */
-app.post("/api/troll/:username", requireAuth, async (req, res) => {
-  if (!mongoReady) return res.status(503).json({ error: "DB hazır değil" });
-  try {
-    const me = await User.findById(req.userId);
-    if (!me || me.username !== "kursatomer" || !me.roles.includes("KUZILER")) {
-      return res.status(403).json({ error: "Yetkin yok" });
-    }
     const target = await User.findOne({ username: req.params.username });
     if (!target) return res.status(404).json({ error: "Kullanıcı bulunamadı" });
 
-    target.followers = Number.POSITIVE_INFINITY;
-    target.meta = target.meta || {};
-    target.meta.trolledAt = Date.now();
-    if (req.query.ban === "1") target.meta.banned = true;
+    const ip = getClientIp(req);
+    if (!Array.isArray(target.followersIp)) target.followersIp = [];
+
+    const idx = target.followersIp.indexOf(ip);
+    let following;
+    if (idx === -1) {
+      target.followersIp.push(ip);
+      following = true;
+    } else {
+      target.followersIp.splice(idx, 1);
+      following = false;
+    }
+    // görünen sayı için istersen 'followers' alanını IP sayısına eşitle
+    target.followers = target.followersIp.length;
 
     await target.save();
-    res.json({ ok: true, message: target.meta.banned ? "troll+ban (∞)" : "troll (∞)" });
+    res.json({ following, followers: target.followers });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-/* ---------------- Statik index.html ---------------- */
+/* --------- Statik --------- */
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-/* ---------------- Start ---------------- */
+/* --------- Start --------- */
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 KZMedia API ayakta: http://localhost:${PORT}`);
 });
-
