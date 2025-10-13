@@ -1,4 +1,4 @@
-// KZMedia + KZAsistan (Mongo; model indirme simülasyonu zorunlu)
+// KZMedia + KZAsistan (Mongo; model indirme simülasyonu zorunlu) + "bu mesaja cevap versin"
 const express = require("express");
 const path = require("path");
 const mongoose = require("mongoose");
@@ -47,7 +47,6 @@ const AssistantMessageSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-// Basit anahtar-değer (model durumu için)
 const ConfigSchema = new mongoose.Schema(
   { key: { type: String, unique: true, required: true }, value: {} },
   { timestamps: true }
@@ -71,7 +70,6 @@ async function ensureDefaults() {
     const ex = await User.findOne({ username: u.username }).lean();
     if (!ex) await User.create(u);
   }
-  // Model varsayılanı: hazır değil
   const existingFlag = await Config.findOne({ key: "modelReady" }).lean();
   if (!existingFlag) await Config.create({ key: "modelReady", value: { ready: false } });
 }
@@ -89,7 +87,6 @@ function safeText(s) {
   if (/<script|onerror=|onload=|javascript:/i.test(trimmed)) return "";
   return maskBadWords(trimmed);
 }
-// basit rate-limit: kullanıcı başı 2 sn
 const lastPostAt = new Map();
 function canPost(username) {
   const now = Date.now();
@@ -240,7 +237,6 @@ app.post("/api/assistant/chat", async (req, res) => {
     if (!u) return res.status(400).json({ error: "user zorunlu" });
     if (!m) return res.status(400).json({ error: "message zorunlu" });
 
-    // model zorunlu kontrol
     const flag = await Config.findOne({ key: "modelReady" }).lean();
     const ready = !!flag?.value?.ready;
     if (!ready) return res.status(400).json({ error: "Önce modeli indir (KZAsistan için zorunlu)." });
@@ -259,31 +255,42 @@ app.post("/api/assistant/chat", async (req, res) => {
   }
 });
 
-// Asistanın akışa yazması (şablon; model yok)
-app.post("/api/assistant/post", async (req, res) => {
+// ===== “Bu mesaja cevap versin” — seçilen posta asistan cevabı =====
+function generateAssistantReply(srcText) {
+  const t = (srcText || "").trim();
+  if (!t) return "Güzel bir paylaşım! Devamını bekliyorum.";
+  const brief = t.length > 160 ? t.slice(0, 157) + "..." : t;
+  // nazik, küfürsüz kısa yanıt
+  return `Paylaşımını okudum: “${brief}”. Düşüncene katılıyorum; eline sağlık!`;
+}
+app.post("/api/assistant/replyToPost/:id", async (req, res) => {
   try {
-    // model zorunlu kontrol
+    // model hazır mı?
     const flag = await Config.findOne({ key: "modelReady" }).lean();
     const ready = !!flag?.value?.ready;
     if (!ready) return res.status(400).json({ error: "Önce modeli indir (KZAsistan için zorunlu)." });
 
+    // asistan hesabı hazırla
     let asst = await User.findOne({ username: "KZAsistan" });
     if (!asst) asst = await User.create({ username: "KZAsistan", pass: "assistant", roles: ["ASSISTANT"] });
 
+    const post = await Post.findById(req.params.id).lean();
+    if (!post) return res.status(404).json({ error: "post yok" });
+
+    // cevap metni
+    const replyText = generateAssistantReply(post.text);
     if (!canPost(asst.username)) return res.status(429).json({ error: "Asistan bekliyor (rate-limit)" });
 
-    const TEMPLATES = [
-      "Küçük adımlar büyük işleri başlatır.",
-      "Önce veri modelini netleştir, sonra UI kolaylaşır.",
-      "Performans için önce ölç, sonra optimize et.",
-      "Karmaşık problemi parçalara böl; çözüm hızlanır."
-    ];
-    const text = TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)];
-    const doc = await Post.create({ author: asst.username, text, private: false });
-    res.json({ ok: true, post: doc });
+    const doc = await Post.create({
+      author: asst.username,
+      text: `@${post.author} ${replyText}`,
+      private: false
+    });
+
+    res.json({ ok: true, replyPost: doc });
   } catch (e) {
-    console.error("❌ /api/assistant/post hata:", e);
-    res.status(500).json({ error: "assistant post hata" });
+    console.error("❌ /api/assistant/replyToPost hata:", e);
+    res.status(500).json({ error: "assistant reply hata" });
   }
 });
 
