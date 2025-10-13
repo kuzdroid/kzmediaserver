@@ -1,10 +1,13 @@
 {
-  "name": "kzmedia-kzasistan-mongo",
-  "version": "1.0.0",
-  "description": "KZMedia + KZAsistan (MongoDB/Atlas)",
+  "name": "kzmedia-kzasistan-full",
+  "version": "1.0.1",
+  "description": "KZMedia + KZAsistan (uzun, anlamlı, MongoDB/Atlas, public klasörsüz)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "express": "^4.19.2",
