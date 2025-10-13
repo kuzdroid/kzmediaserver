@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;
-    --primary:#4f8cff;--border:#212532;--danger:#ff5c74
+    --primary:#4f8cff;--border:#212532;--danger:#ff5c74;--ok:#2ecc71
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
@@ -21,12 +21,20 @@
   .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
   .tag{background:var(--primary);color:#fff;padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
   hr{border:0;border-top:1px solid var(--border);margin:12px 0}
+
+  /* İndirme progress */
+  .progress-wrap{margin-top:8px;background:#0e1016;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .progress-bar{height:10px;width:0%;}
+  .blue{background:#4f8cff}
+  .green{background:var(--ok)}
+  .badge-ok{display:inline-block;background:var(--ok);color:#052; padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
+  .badge-warn{display:inline-block;background:#ffbd2e;color:#351; padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
 </style>
 </head>
 <body>
 <header class="header">
   <strong>KZMedia</strong>
-  <span class="small">• sosyal + KZAsistan (Mongo; asistan mesajları DB’de)</span>
+  <span class="small">• sosyal + KZAsistan (model indirme zorunlu)</span>
 </header>
 
 <main class="container">
@@ -39,7 +47,9 @@
       <button id="btnRegister">Kayıt</button>
       <button id="btnLogin">Giriş</button>
     </div>
-    <div class="small" style="margin-top:6px">Hazır kullanıcılar: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER (şifre hepsinde: KUZİLER)</div>
+    <div class="small" style="margin-top:6px">
+      Hazır kullanıcılar: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER (şifre hepsinde: KUZİLER)
+    </div>
 
     <hr>
 
@@ -74,9 +84,21 @@
   <aside class="card">
     <div class="small">Şu anki kullanıcı: <strong id="meName">—</strong></div>
     <div class="small" style="margin-top:6px">Rol: <strong id="meRole">yok</strong></div>
+
     <hr>
+
     <h4>KZAsistan</h4>
-    <div class="row">
+
+    <!-- Model indirme alanı -->
+    <div id="modelBox">
+      <button id="btnModel" title="KZAsistan için zorunlu">Modeli İndir <span class="small">(KZAsistan için zorunlu)</span></button>
+      <span id="modelState" class="badge-warn">Hazır değil</span>
+      <div class="progress-wrap" id="progWrap" style="display:none">
+        <div class="progress-bar blue" id="progBar"></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
       <input id="ask" placeholder="Soru / Not (DB'ye kaydedilir)">
       <button id="btnAsk">Gönder</button>
     </div>
@@ -97,6 +119,53 @@
     $('meRole').textContent = Array.isArray(roles)&&roles.length? roles.join(',') : 'yok';
     $('compose').style.display = name && name !== '—' ? 'block' : 'none';
   }
+
+  // Model durumunu çek
+  async function refreshModelStatus(){
+    try{
+      const r = await fetch(API + "/api/assistant/model/status");
+      const j = await r.json();
+      if(!r.ok) throw new Error(j.error||"status");
+      if(j.ready){
+        $('modelState').textContent = "Hazır";
+        $('modelState').className = "badge-ok";
+        $('progWrap').style.display = "none";
+        const bar = $('progBar'); bar.style.width = "100%"; bar.className = "progress-bar green";
+      }else{
+        $('modelState').textContent = "Hazır değil";
+        $('modelState').className = "badge-warn";
+      }
+    }catch(_){
+      $('modelState').textContent = "Durum alınamadı";
+      $('modelState').className = "badge-warn";
+    }
+  }
+
+  // “Modeli indir” simülasyonu
+  $('btnModel').addEventListener('click', async ()=>{
+    // progress bar simülasyonu
+    $('progWrap').style.display = "block";
+    const bar = $('progBar');
+    bar.style.width = "0%";
+    bar.className = "progress-bar blue";
+
+    let p = 0;
+    const iv = setInterval(()=> {
+      p += Math.random()*18 + 6; // 6-24 arası adımlar
+      if(p >= 100){
+        p = 100;
+        clearInterval(iv);
+        bar.style.width = p + "%";
+        bar.className = "progress-bar green";
+        // sunucuya hazır bayrağını yaz
+        fetch(API + "/api/assistant/model/ready", { method: "POST" })
+          .then(()=> refreshModelStatus())
+          .catch(()=> refreshModelStatus());
+      } else {
+        bar.style.width = p + "%";
+      }
+    }, 250);
+  });
 
   // Kayıt
   $('btnRegister').addEventListener('click', async ()=>{
@@ -175,12 +244,19 @@
     }
   }
 
-  // KZAsistan — mesajlar DB'ye kaydolur (model yok)
+  // KZAsistan — model zorunlu, mesajlar DB'ye kaydolur
   $('btnAsk').addEventListener('click', async ()=>{
     const msg=$('ask').value.trim();
     const user=$('meName').textContent;
     if(user==='—') return alert('Önce giriş yap');
     if(!msg) return;
+
+    // model hazır mı?
+    const st = await (await fetch(API + "/api/assistant/model/status")).json();
+    if(!st.ok || !st.ready){
+      return alert("Önce 'Modeli İndir' tuşuna bas ve indirme tamamlanınca tekrar dene.");
+    }
+
     const r=await fetch(API+'/api/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ user, message: msg })});
     const j=await r.json();
     if(!r.ok) return alert(j.error||'Hata');
@@ -188,13 +264,21 @@
     $('ask').value='';
   });
 
-  // Asistan akışa yazsın (şablon)
+  // Asistan akışa yazsın (şablon; model zorunlu)
   $('btnAsistanPost').addEventListener('click', async ()=>{
+    // model hazır mı?
+    const st = await (await fetch(API + "/api/assistant/model/status")).json();
+    if(!st.ok || !st.ready){
+      return alert("Önce 'Modeli İndir' tuşuna bas ve indirme tamamlanınca tekrar dene.");
+    }
     const r=await fetch(API+'/api/assistant/post',{method:'POST'});
     const j=await r.json();
     if(!r.ok) return alert(j.error||'Hata');
     await loadFeed();
   });
+
+  // Başlangıçta model durumu
+  refreshModelStatus();
 </script>
 </body>
 </html>
