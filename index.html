@@ -3,26 +3,35 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>KZMedia</title>
+<title>KZMedia • Sosyal + KZAsistan</title>
 <style>
-  body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:#0b0c10;color:#e8eaed}
-  .header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#11131a;border-bottom:1px solid #212532}
-  .container{max-width:1000px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr 320px;gap:12px}
-  .card{background:#11131a;border:1px solid #212532;border-radius:12px;padding:12px}
-  input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #212532;background:#0e1016;color:#e8eaed;outline:none}
-  button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer;background:#4f8cff;color:#fff}
-  .small{font-size:12px;color:#a3a7b0}
-  .post{margin-top:10px;padding:10px;border:1px solid #212532;border-radius:10px}
-  .row{display:flex;gap:8px;align-items:center;margin-top:6px}
+  :root{
+    --bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;
+    --primary:#4f8cff;--accent:#64d2ff;--border:#212532;--danger:#ff5c74
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+  .header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border)}
+  .container{max-width:1100px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr 360px;gap:12px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
+  input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:var(--text);outline:none}
+  button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer;background:var(--primary);color:#fff}
+  .small{font-size:12px;color:var(--muted)}
+  .post{margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px}
+  .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  .tag{background:var(--primary);color:#fff;padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
+  .btn-danger{background:var(--danger)}
+  hr{border:0;border-top:1px solid var(--border);margin:12px 0}
 </style>
 </head>
 <body>
 <header class="header">
   <strong>KZMedia</strong>
-  <span class="small">• sosyal + asistan</span>
+  <span class="small">• sosyal + KZAsistan (Mongo)</span>
 </header>
 
 <main class="container">
+  <!-- Sol -->
   <section class="card">
     <h3>Giriş / Kayıt</h3>
     <div class="row">
@@ -31,26 +40,41 @@
       <button id="btnRegister">Kayıt</button>
       <button id="btnLogin">Giriş</button>
     </div>
+    <div class="small" style="margin-top:6px">Hazır kullanıcılar: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER (şifre hepsinde: KUZİLER)</div>
+
     <hr>
+
     <div id="compose" style="display:none">
       <h3>Paylaş</h3>
       <textarea id="postText" rows="3" placeholder="Ne paylaşmak istersin?"></textarea>
       <input id="postImage" placeholder="Resim URL (opsiyonel)">
       <input id="postVideo" placeholder="Video URL (opsiyonel)">
-      <label class="row"><input id="postPrivate" type="checkbox"><span class="small">@KUZILER</span></label>
+      <label class="row"><input id="postPrivate" type="checkbox"><span class="small">@KUZILER (özel)</span></label>
       <div class="row">
         <button id="btnPost">Paylaş</button>
         <button id="btnRefresh">Yenile</button>
       </div>
     </div>
+
     <hr>
+
+    <div class="row">
+      <input id="q" placeholder="Metinde/kişide ara...">
+      <button id="btnSearch">Ara</button>
+      <button id="btnClear" class="">Temizle</button>
+    </div>
+
+    <hr>
+
     <h3>Akış</h3>
     <div id="feed"></div>
     <div class="small" id="empty" style="display:none">Gönderi yok</div>
   </section>
 
+  <!-- Sağ -->
   <aside class="card">
     <div class="small">Şu anki kullanıcı: <strong id="meName">—</strong></div>
+    <div class="small" style="margin-top:6px">Rol: <strong id="meRole">yok</strong></div>
     <hr>
     <h4>KZAsistan</h4>
     <div class="row">
@@ -61,6 +85,18 @@
     <div class="row" style="margin-top:8px">
       <button id="btnAsistanPost">Asistan Akışa Yazsın</button>
     </div>
+
+    <hr>
+
+    <div id="adminBox" style="display:none">
+      <h4>Admin Paneli</h4>
+      <div class="small">Kullanıcıyı admin yap</div>
+      <div class="row">
+        <input id="admUser" placeholder="kullanıcı adı">
+        <button id="btnMakeAdmin">Admin Yap</button>
+      </div>
+      <div class="small" style="margin-top:6px;color:#9fd">Kursatomer zaten ADMIN.</div>
+    </div>
   </aside>
 </main>
 
@@ -68,6 +104,14 @@
   const API = ""; // aynı origin
   const $ = id => document.getElementById(id);
   function esc(s=""){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // Oturum (sadece UI için)
+  function setMe(name, roles){
+    $('meName').textContent = name || '—';
+    $('meRole').textContent = Array.isArray(roles)&&roles.length? roles.join(',') : 'yok';
+    $('compose').style.display = name && name !== '—' ? 'block' : 'none';
+    $('adminBox').style.display = (roles||[]).includes('ADMIN') ? 'block' : 'none';
+  }
 
   // Kayıt
   $('btnRegister').addEventListener('click', async ()=>{
@@ -86,8 +130,7 @@
     const r=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
     const j=await r.json();
     if(!r.ok) return alert(j.error||'Giriş başarısız');
-    $('meName').textContent = j.user?.username || u;
-    $('compose').style.display = 'block';
+    setMe(j.user?.username||u, j.user?.roles||[]);
     await loadFeed();
   });
 
@@ -101,7 +144,8 @@
     const videoUrl=$('postVideo').value.trim();
     const isPrivate=$('postPrivate').checked;
 
-    const r=await fetch(API+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({author,text,imageUrl,videoUrl,isPrivate})});
+    const r=await fetch(API+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({author,text,imageUrl,videoUrl,isPrivate})});
     const j=await r.json();
     if(!r.ok) return alert(j.error||'Paylaşım başarısız');
 
@@ -109,24 +153,30 @@
     await loadFeed();
   });
 
+  // Arama
+  $('btnSearch').addEventListener('click', loadFeed);
+  $('btnClear').addEventListener('click', ()=>{ $('q').value=''; loadFeed(); });
+
   // Yenile
   $('btnRefresh').addEventListener('click', loadFeed);
 
-  // Akış
+  // Akış yükleme
   async function loadFeed(){
     const user=$('meName').textContent;
+    const q=$('q').value.trim();
     const feed=$('feed'); const empty=$('empty');
     feed.innerHTML='';
     try{
-      const r=await fetch(API+`/api/posts/feed?user=${encodeURIComponent(user)}`);
+      const r=await fetch(API+`/api/posts/feed?user=${encodeURIComponent(user)}&q=${encodeURIComponent(q)}`);
       const arr=await r.json();
       if(!r.ok) return alert(arr.error||'Akış hatası');
       let shown=0;
       for(const p of arr){
         const when=p.createdAt?new Date(p.createdAt).toLocaleString():'';
+        const tag = p.private? '<span class="tag">@KUZILER</span>' : '';
         const div=document.createElement('div'); div.className='post';
         div.innerHTML = `
-          <div class="row"><strong>${esc(p.author||'—')}</strong><span class="small">${when}</span></div>
+          <div class="row"><strong>${esc(p.author||'—')}</strong> ${tag} <span class="small">${when}</span></div>
           <div>${esc(p.text||'')}</div>
           ${p.imageUrl?`<div><img src="${esc(p.imageUrl)}" style="max-width:100%;border-radius:8px;margin-top:6px"></div>`:''}
           ${p.videoUrl?`<div><video controls src="${esc(p.videoUrl)}" style="max-width:100%;border-radius:8px;margin-top:6px"></video></div>`:''}
