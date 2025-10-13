@@ -1,7 +1,7 @@
 {
   "name": "kzmedia-kzasistan",
-  "version": "1.0.1",
-  "description": "KZMedia + KZAsistan (Mongo; asistan messages modelsiz)",
+  "version": "1.0.2",
+  "description": "KZMedia + KZAsistan (Mongo; model indirme simülasyonu zorunlu)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
