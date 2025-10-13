@@ -1,4 +1,4 @@
-// KZMedia + KZAsistan (Mongo bağlı, asistan chat LLM'siz; mesajlar DB'ye kaydedilir)
+// KZMedia + KZAsistan (Mongo; model indirme simülasyonu zorunlu)
 const express = require("express");
 const path = require("path");
 const mongoose = require("mongoose");
@@ -47,10 +47,16 @@ const AssistantMessageSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+// Basit anahtar-değer (model durumu için)
+const ConfigSchema = new mongoose.Schema(
+  { key: { type: String, unique: true, required: true }, value: {} },
+  { timestamps: true }
+);
 
 const User = mongoose.model("User", UserSchema);
 const Post = mongoose.model("Post", PostSchema);
 const AssistantMessage = mongoose.model("AssistantMessage", AssistantMessageSchema);
+const Config = mongoose.model("Config", ConfigSchema);
 
 // Varsayılan kullanıcılar
 async function ensureDefaults() {
@@ -65,6 +71,9 @@ async function ensureDefaults() {
     const ex = await User.findOne({ username: u.username }).lean();
     if (!ex) await User.create(u);
   }
+  // Model varsayılanı: hazır değil
+  const existingFlag = await Config.findOne({ key: "modelReady" }).lean();
+  if (!existingFlag) await Config.create({ key: "modelReady", value: { ready: false } });
 }
 ensureDefaults().catch(()=>{});
 
@@ -101,7 +110,8 @@ app.get("/api/health", async (req, res) => {
   const userCount = await User.countDocuments();
   const postCount = await Post.countDocuments();
   const msgCount  = await AssistantMessage.countDocuments();
-  res.json({ ok: true, app: "KZMedia+KZAsistan", users: userCount, posts: postCount, msgs: msgCount, now: Date.now() });
+  const flag = await Config.findOne({ key: "modelReady" }).lean();
+  res.json({ ok: true, app: "KZMedia+KZAsistan", users: userCount, posts: postCount, msgs: msgCount, modelReady: !!flag?.value?.ready, now: Date.now() });
 });
 
 // ===== Auth =====
@@ -187,7 +197,41 @@ app.post("/api/posts/:id/like", async (req, res) => {
   }
 });
 
-// ===== KZAsistan (modelsiz, Mongo'ya kayıt) =====
+// ===== Model “indirme” simülasyonu (zorunlu bayrak) =====
+app.get("/api/assistant/model/status", async (req, res) => {
+  try {
+    const flag = await Config.findOne({ key: "modelReady" }).lean();
+    res.json({ ok: true, ready: !!flag?.value?.ready });
+  } catch {
+    res.status(500).json({ error: "status hata" });
+  }
+});
+app.post("/api/assistant/model/ready", async (req, res) => {
+  try {
+    await Config.updateOne(
+      { key: "modelReady" },
+      { $set: { value: { ready: true } } },
+      { upsert: true }
+    );
+    res.json({ ok: true, ready: true });
+  } catch {
+    res.status(500).json({ error: "ready hata" });
+  }
+});
+app.post("/api/assistant/model/reset", async (req, res) => {
+  try {
+    await Config.updateOne(
+      { key: "modelReady" },
+      { $set: { value: { ready: false } } },
+      { upsert: true }
+    );
+    res.json({ ok: true, ready: false });
+  } catch {
+    res.status(500).json({ error: "reset hata" });
+  }
+});
+
+// ===== KZAsistan (modelsiz, Mongo'ya mesaj kaydı) =====
 app.post("/api/assistant/chat", async (req, res) => {
   try {
     const { user, message } = req.body || {};
@@ -196,6 +240,11 @@ app.post("/api/assistant/chat", async (req, res) => {
     if (!u) return res.status(400).json({ error: "user zorunlu" });
     if (!m) return res.status(400).json({ error: "message zorunlu" });
 
+    // model zorunlu kontrol
+    const flag = await Config.findOne({ key: "modelReady" }).lean();
+    const ready = !!flag?.value?.ready;
+    if (!ready) return res.status(400).json({ error: "Önce modeli indir (KZAsistan için zorunlu)." });
+
     const me = await User.findOne({ username: u }).lean();
     if (!me) return res.status(400).json({ error: "kullanıcı yok" });
 
@@ -203,30 +252,21 @@ app.post("/api/assistant/chat", async (req, res) => {
     if (!clean) return res.status(400).json({ error: "mesaj kabul edilmedi" });
 
     const doc = await AssistantMessage.create({ fromUser: u, text: clean });
-    return res.json({ ok: true, saved: { id: doc._id, at: doc.createdAt }, reply: "Mesajın kaydedildi. (Model yok)" });
+    return res.json({ ok: true, saved: { id: doc._id, at: doc.createdAt }, reply: "Mesajın kaydedildi." });
   } catch (e) {
     console.error("❌ /api/assistant/chat hata:", e);
     res.status(500).json({ error: "assistant chat hata" });
   }
 });
 
-// (opsiyonel) kendi mesaj kutusu
-app.get("/api/assistant/inbox", async (req, res) => {
-  try {
-    const u = (req.query.user || "").trim();
-    if (!u) return res.status(400).json({ error: "user zorunlu" });
-    const me = await User.findOne({ username: u }).lean();
-    if (!me) return res.status(400).json({ error: "kullanıcı yok" });
-    const list = await AssistantMessage.find({ fromUser: u }, null, { sort: { createdAt: -1 }, limit: 200 }).lean();
-    res.json({ ok: true, items: list });
-  } catch {
-    res.status(500).json({ error: "inbox hata" });
-  }
-});
-
 // Asistanın akışa yazması (şablon; model yok)
 app.post("/api/assistant/post", async (req, res) => {
   try {
+    // model zorunlu kontrol
+    const flag = await Config.findOne({ key: "modelReady" }).lean();
+    const ready = !!flag?.value?.ready;
+    if (!ready) return res.status(400).json({ error: "Önce modeli indir (KZAsistan için zorunlu)." });
+
     let asst = await User.findOne({ username: "KZAsistan" });
     if (!asst) asst = await User.create({ username: "KZAsistan", pass: "assistant", roles: ["ASSISTANT"] });
 
