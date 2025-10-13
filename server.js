@@ -1,5 +1,6 @@
-// server.js — KZMedia + KZAsistan + MongoDB (Atlas)
-// Tek dosya: modeller burada, public klasörü yok, index.html kökten servis edilir.
+// server.js — KZMedia + KZAsistan (uzun/anlamlı), MongoDB/Atlas, public klasör YOK
+// index.html kökten (/) servis edilir.
+// Not: İstemci tarafında parola LOG'lanmaz/gösterilmez. Şifreler düz metin (demo).
 
 const express = require("express");
 const path = require("path");
@@ -9,36 +10,32 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ====== MongoDB Bağlantısı ======
-const MONGO_URL = process.env.MONGO_URL; // Render/ENV'e Atlas SRV linkini koy
+const MONGO_URL = process.env.MONGO_URL;
 if (!MONGO_URL) {
-  console.error("❌ MONGO_URL env yok (Atlas bağlantı dizesini ekleyin).");
+  console.error("❌ MONGO_URL env yok (Atlas SRV bağlantısını Render ayarlarına ekleyin).");
   process.exit(1);
 }
-
 mongoose
-  .connect(MONGO_URL, {
-    // Atlas SRV için port yazmayın; kullanıcı/parola doğru olmalı
-    // DB adı bağlantı dizesinde yoksa mongoose 'test' kullanır.
-  })
+  .connect(MONGO_URL)
   .then(() => console.log("✅ MongoDB bağlandı"))
   .catch((err) => {
-    console.error("❌ MongoDB bağlantı hatası:", err.message || err);
+    console.error("❌ MongoDB bağlantı hatası:", err?.message || err);
     process.exit(1);
   });
 
-// ====== Modeller (tek dosyada) ======
+// ====== Modeller ======
 const UserSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, unique: true, trim: true },
-    pass: { type: String, required: true }, // DEMO: düz metin (bcrypt yok)
-    roles: { type: [String], default: [] }
+    pass: { type: String, required: true }, // DEMO: düz metin
+    roles: { type: [String], default: [] }  // ADMIN, KUZILER, ASSISTANT
   },
   { timestamps: true }
 );
 
 const PostSchema = new mongoose.Schema(
   {
-    author: { type: String, required: true }, // username olarak saklıyoruz
+    author: { type: String, required: true }, // username
     text: { type: String, required: true },
     imageUrl: { type: String, default: null },
     videoUrl: { type: String, default: null },
@@ -51,7 +48,7 @@ const PostSchema = new mongoose.Schema(
 const User = mongoose.model("User", UserSchema);
 const Post = mongoose.model("Post", PostSchema);
 
-// Varsayılan kullanıcıları bir kere oluştur
+// Varsayılan kullanıcılar
 async function ensureDefaults() {
   const defaults = [
     { username: "kursatomer@KUZİLER", pass: "KUZİLER", roles: ["ADMIN", "KUZILER"] },
@@ -67,7 +64,7 @@ async function ensureDefaults() {
 }
 ensureDefaults().catch(() => {});
 
-// ====== Basit içerik güvenliği ======
+// ====== İçerik Güvenliği ======
 function maskBadWords(t) {
   const bad = ["salak","aptal","orospu","piç","gerizekalı","şerefsiz","lanet","küfür","söv"];
   let out = String(t || "");
@@ -75,12 +72,12 @@ function maskBadWords(t) {
   return out;
 }
 function safeText(s) {
-  const trimmed = String(s || "").slice(0, 1000);
+  const trimmed = String(s || "").slice(0, 2000);
   if (/<script|onerror=|onload=|javascript:/i.test(trimmed)) return "";
   return maskBadWords(trimmed);
 }
 
-// Basit post rate-limit (in-memory)
+// Basit rate-limit (kullanıcı başı 2 sn)
 const lastPostAt = new Map();
 function canPost(username) {
   const now = Date.now();
@@ -90,10 +87,10 @@ function canPost(username) {
   return true;
 }
 
-// ====== Orta katmanlar ======
+// ====== Middleware ======
 app.use(express.json());
 
-// Kök sayfa: index.html kökten
+// ====== Sayfa ======
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
@@ -102,12 +99,10 @@ app.get("/", (req, res) => {
 app.get("/api/health", async (req, res) => {
   const userCount = await User.countDocuments();
   const postCount = await Post.countDocuments();
-  res.json({ ok: true, name: "KZMedia API", public: false, health: "/api/health", users: userCount, posts: postCount });
+  res.json({ ok: true, app: "KZMedia+KZAsistan", users: userCount, posts: postCount, now: Date.now() });
 });
 
 // ====== Auth ======
-
-// Kayıt
 app.post("/api/auth/register", async (req, res) => {
   try {
     const { username, password } = req.body || {};
@@ -116,32 +111,29 @@ app.post("/api/auth/register", async (req, res) => {
     const exists = await User.findOne({ username }).lean();
     if (exists) return res.status(400).json({ error: "kullanıcı var" });
 
-    const user = await User.create({ username, pass: password, roles: [] });
-    res.json({ ok: true, user: { username: user.username, roles: user.roles } });
+    const doc = await User.create({ username, pass: password, roles: [] });
+    res.json({ ok: true, user: { username: doc.username, roles: doc.roles } });
   } catch (e) {
     res.status(500).json({ error: "register hata" });
   }
 });
 
-// Giriş
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (!username || typeof password === "undefined") return res.status(400).json({ error: "eksik giriş" });
 
-    const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ error: "kullanıcı yok" });
-    if (user.pass !== password) return res.status(400).json({ error: "şifre yanlış" });
+    const u = await User.findOne({ username });
+    if (!u) return res.status(400).json({ error: "kullanıcı yok" });
+    if (u.pass !== password) return res.status(400).json({ error: "şifre yanlış" });
 
-    res.json({ ok: true, user: { username: user.username, roles: user.roles } });
+    res.json({ ok: true, user: { username: u.username, roles: u.roles } });
   } catch (e) {
     res.status(500).json({ error: "login hata" });
   }
 });
 
 // ====== Posts ======
-
-// Oluştur
 app.post("/api/posts", async (req, res) => {
   try {
     const { author, text, imageUrl, videoUrl, isPrivate } = req.body || {};
@@ -168,7 +160,6 @@ app.post("/api/posts", async (req, res) => {
   }
 });
 
-// Feed
 app.get("/api/posts/feed", async (req, res) => {
   try {
     const q = (req.query.q || "").toString().toLowerCase();
@@ -176,7 +167,6 @@ app.get("/api/posts/feed", async (req, res) => {
     const me = user ? await User.findOne({ username: user }).lean() : null;
     const isK = !!(me && me.roles && me.roles.includes("KUZILER"));
 
-    // En yeni > en eski
     const list = await Post.find({}, null, { sort: { createdAt: -1 }, limit: 200 }).lean();
 
     const filtered = list.filter((p) => {
@@ -191,7 +181,7 @@ app.get("/api/posts/feed", async (req, res) => {
   }
 });
 
-// Like (toggle) — HTML’in bu sürümü kullanmıyor ama dursun
+// Like (toggle)
 app.post("/api/posts/:id/like", async (req, res) => {
   try {
     const { username } = req.body || {};
@@ -241,11 +231,13 @@ app.post("/api/assistant/post", async (req, res) => {
       "Performans için önce ölç, sonra optimize et.",
       "Karmaşık problemi parçalara böl; çözüm hızlanır."
     ];
-    if (!canPost("KZAsistan")) return res.status(429).json({ error: "Asistan biraz bekliyor" });
 
     // Asistan hesabı yoksa oluştur
     const asst = await User.findOne({ username: "KZAsistan" });
     if (!asst) await User.create({ username: "KZAsistan", pass: "", roles: ["ASSISTANT"] });
+
+    // Rate-limit (KZAsistan adına)
+    if (!canPost("KZAsistan")) return res.status(429).json({ error: "Asistan biraz bekliyor" });
 
     const doc = await Post.create({
       author: "KZAsistan",
@@ -259,7 +251,7 @@ app.post("/api/assistant/post", async (req, res) => {
   }
 });
 
-// API dışındakileri index.html'e yönlendir (public yoksa 404 yerine sayfa açılsın)
+// API dışındaki her şey index.html'e düşsün (404 yerine SPA davranışı)
 app.get("*", (req, res) => {
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ ok: false, error: "Not Found", path: req.path });
@@ -267,7 +259,7 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ====== Server ======
+// ====== Start ======
 app.listen(PORT, () => {
   console.log(`🚀 Sunucu ayakta: http://localhost:${PORT}`);
 });
