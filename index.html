@@ -22,7 +22,6 @@
   .tag{background:var(--primary);color:#fff;padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
   hr{border:0;border-top:1px solid var(--border);margin:12px 0}
 
-  /* İndirme progress */
   .progress-wrap{margin-top:8px;background:#0e1016;border:1px solid var(--border);border-radius:10px;overflow:hidden}
   .progress-bar{height:10px;width:0%;}
   .blue{background:#4f8cff}
@@ -48,7 +47,7 @@
       <button id="btnLogin">Giriş</button>
     </div>
     <div class="small" style="margin-top:6px">
-      Hazır kullanıcılar: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER (şifre hepsinde: KUZİLER)
+      Hazır kullanıcılar: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER (şifre: KUZİLER)
     </div>
 
     <hr>
@@ -120,7 +119,6 @@
     $('compose').style.display = name && name !== '—' ? 'block' : 'none';
   }
 
-  // Model durumunu çek
   async function refreshModelStatus(){
     try{
       const r = await fetch(API + "/api/assistant/model/status");
@@ -141,9 +139,7 @@
     }
   }
 
-  // “Modeli indir” simülasyonu
   $('btnModel').addEventListener('click', async ()=>{
-    // progress bar simülasyonu
     $('progWrap').style.display = "block";
     const bar = $('progBar');
     bar.style.width = "0%";
@@ -151,13 +147,12 @@
 
     let p = 0;
     const iv = setInterval(()=> {
-      p += Math.random()*18 + 6; // 6-24 arası adımlar
+      p += Math.random()*18 + 6;
       if(p >= 100){
         p = 100;
         clearInterval(iv);
         bar.style.width = p + "%";
         bar.className = "progress-bar green";
-        // sunucuya hazır bayrağını yaz
         fetch(API + "/api/assistant/model/ready", { method: "POST" })
           .then(()=> refreshModelStatus())
           .catch(()=> refreshModelStatus());
@@ -210,8 +205,6 @@
   // Arama
   $('btnSearch').addEventListener('click', loadFeed);
   $('btnClear').addEventListener('click', ()=>{ $('q').value=''; loadFeed(); });
-
-  // Yenile
   $('btnRefresh').addEventListener('click', loadFeed);
 
   // Akış
@@ -234,7 +227,24 @@
           <div>${esc(p.text||'')}</div>
           ${p.imageUrl?`<div><img src="${esc(p.imageUrl)}" style="max-width:100%;border-radius:8px;margin-top:6px"></div>`:''}
           ${p.videoUrl?`<div><video controls src="${esc(p.videoUrl)}" style="max-width:100%;border-radius:8px;margin-top:6px"></video></div>`:''}
+          <div class="row">
+            <button class="btn-reply" data-id="${p._id}">Asistan Cevaplasın</button>
+          </div>
         `;
+        // Cevap butonu
+        div.querySelector('.btn-reply')?.addEventListener('click', async (ev)=>{
+          // model hazır mı?
+          const st = await (await fetch(API + "/api/assistant/model/status")).json();
+          if(!st.ok || !st.ready){
+            return alert("Önce 'Modeli İndir' tuşuna bas ve indirme tamamlanınca tekrar dene.");
+          }
+          const id = ev.currentTarget.getAttribute('data-id');
+          const rr = await fetch(API+`/api/assistant/replyToPost/${encodeURIComponent(id)}`, { method:'POST' });
+          const jj = await rr.json();
+          if(!rr.ok) return alert(jj.error||'Cevap hatası');
+          await loadFeed();
+        });
+
         feed.appendChild(div); shown++;
       }
       empty.style.display = shown ? 'none' : 'block';
@@ -251,7 +261,6 @@
     if(user==='—') return alert('Önce giriş yap');
     if(!msg) return;
 
-    // model hazır mı?
     const st = await (await fetch(API + "/api/assistant/model/status")).json();
     if(!st.ok || !st.ready){
       return alert("Önce 'Modeli İndir' tuşuna bas ve indirme tamamlanınca tekrar dene.");
@@ -266,7 +275,6 @@
 
   // Asistan akışa yazsın (şablon; model zorunlu)
   $('btnAsistanPost').addEventListener('click', async ()=>{
-    // model hazır mı?
     const st = await (await fetch(API + "/api/assistant/model/status")).json();
     if(!st.ok || !st.ready){
       return alert("Önce 'Modeli İndir' tuşuna bas ve indirme tamamlanınca tekrar dene.");
@@ -277,7 +285,6 @@
     await loadFeed();
   });
 
-  // Başlangıçta model durumu
   refreshModelStatus();
 </script>
 </body>
