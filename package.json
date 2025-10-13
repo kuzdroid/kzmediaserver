@@ -1,7 +1,7 @@
 {
-  "name": "kzmedia-kzasistan-full",
+  "name": "kzmedia-kzasistan",
   "version": "1.0.1",
-  "description": "KZMedia + KZAsistan (uzun, anlamlı, MongoDB/Atlas, public klasörsüz)",
+  "description": "KZMedia + KZAsistan (Mongo; asistan messages modelsiz)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
