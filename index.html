@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;
-    --primary:#4f8cff;--accent:#64d2ff;--border:#212532;--danger:#ff5c74
+    --primary:#4f8cff;--border:#212532;--danger:#ff5c74
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
@@ -20,14 +20,13 @@
   .post{margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px}
   .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
   .tag{background:var(--primary);color:#fff;padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
-  .btn-danger{background:var(--danger)}
   hr{border:0;border-top:1px solid var(--border);margin:12px 0}
 </style>
 </head>
 <body>
 <header class="header">
   <strong>KZMedia</strong>
-  <span class="small">• sosyal + KZAsistan (Mongo)</span>
+  <span class="small">• sosyal + KZAsistan (Mongo; asistan mesajları DB’de)</span>
 </header>
 
 <main class="container">
@@ -61,7 +60,7 @@
     <div class="row">
       <input id="q" placeholder="Metinde/kişide ara...">
       <button id="btnSearch">Ara</button>
-      <button id="btnClear" class="">Temizle</button>
+      <button id="btnClear">Temizle</button>
     </div>
 
     <hr>
@@ -78,24 +77,12 @@
     <hr>
     <h4>KZAsistan</h4>
     <div class="row">
-      <input id="ask" placeholder="Soru yaz (ör: merhaba)">
-      <button id="btnAsk">Sor</button>
+      <input id="ask" placeholder="Soru / Not (DB'ye kaydedilir)">
+      <button id="btnAsk">Gönder</button>
     </div>
     <div id="ans" class="small" style="margin-top:8px"></div>
     <div class="row" style="margin-top:8px">
       <button id="btnAsistanPost">Asistan Akışa Yazsın</button>
-    </div>
-
-    <hr>
-
-    <div id="adminBox" style="display:none">
-      <h4>Admin Paneli</h4>
-      <div class="small">Kullanıcıyı admin yap</div>
-      <div class="row">
-        <input id="admUser" placeholder="kullanıcı adı">
-        <button id="btnMakeAdmin">Admin Yap</button>
-      </div>
-      <div class="small" style="margin-top:6px;color:#9fd">Kursatomer zaten ADMIN.</div>
     </div>
   </aside>
 </main>
@@ -105,12 +92,10 @@
   const $ = id => document.getElementById(id);
   function esc(s=""){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  // Oturum (sadece UI için)
   function setMe(name, roles){
     $('meName').textContent = name || '—';
     $('meRole').textContent = Array.isArray(roles)&&roles.length? roles.join(',') : 'yok';
     $('compose').style.display = name && name !== '—' ? 'block' : 'none';
-    $('adminBox').style.display = (roles||[]).includes('ADMIN') ? 'block' : 'none';
   }
 
   // Kayıt
@@ -120,7 +105,7 @@
     const r=await fetch(API+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
     const j=await r.json();
     if(!r.ok) return alert(j.error||'Kayıt başarısız');
-    alert('Kayıt tamam. Lütfen giriş yapın.');
+    alert('Kayıt tamam. Giriş yapın.');
   });
 
   // Giriş
@@ -160,7 +145,7 @@
   // Yenile
   $('btnRefresh').addEventListener('click', loadFeed);
 
-  // Akış yükleme
+  // Akış
   async function loadFeed(){
     const user=$('meName').textContent;
     const q=$('q').value.trim();
@@ -184,21 +169,26 @@
         feed.appendChild(div); shown++;
       }
       empty.style.display = shown ? 'none' : 'block';
-    }catch(e){
+    }catch{
       empty.style.display='block';
       empty.textContent='Akış yüklenemedi';
     }
   }
 
-  // KZAsistan
+  // KZAsistan — mesajlar DB'ye kaydolur (model yok)
   $('btnAsk').addEventListener('click', async ()=>{
     const msg=$('ask').value.trim();
+    const user=$('meName').textContent;
+    if(user==='—') return alert('Önce giriş yap');
     if(!msg) return;
-    const r=await fetch(API+'/api/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+    const r=await fetch(API+'/api/assistant/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ user, message: msg })});
     const j=await r.json();
-    $('ans').textContent = j.reply || (j.error||'Hata');
+    if(!r.ok) return alert(j.error||'Hata');
+    $('ans').textContent = j.reply || 'Kaydedildi.';
+    $('ask').value='';
   });
 
+  // Asistan akışa yazsın (şablon)
   $('btnAsistanPost').addEventListener('click', async ()=>{
     const r=await fetch(API+'/api/assistant/post',{method:'POST'});
     const j=await r.json();
