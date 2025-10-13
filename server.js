@@ -1,6 +1,5 @@
 // server.js — KZMedia + KZAsistan (uzun/anlamlı), MongoDB/Atlas, public klasör YOK
-// index.html kökten (/) servis edilir.
-// Not: İstemci tarafında parola LOG'lanmaz/gösterilmez. Şifreler düz metin (demo).
+// index.html kökten (/) servis edilir. Şifreler istemcide gösterilmez (demo = düz metin).
 
 const express = require("express");
 const path = require("path");
@@ -55,7 +54,7 @@ async function ensureDefaults() {
     { username: "elalye@KUZİLER",     pass: "KUZİLER", roles: ["KUZILER"] },
     { username: "sena@KUZİLER",       pass: "KUZİLER", roles: ["KUZILER"] },
     { username: "MR.Selim@KUZİLER",   pass: "KUZİLER", roles: ["KUZILER"] },
-    { username: "KZAsistan",          pass: "",         roles: ["ASSISTANT"] }
+    { username: "KZAsistan",          pass: "assistant", roles: ["ASSISTANT"] }
   ];
   for (const u of defaults) {
     const exists = await User.findOne({ username: u.username }).lean();
@@ -181,7 +180,7 @@ app.get("/api/posts/feed", async (req, res) => {
   }
 });
 
-// Like (toggle)
+// Like (toggle) — endpoint dursun, UI tarafı istersen ekleyebilirsin
 app.post("/api/posts/:id/like", async (req, res) => {
   try {
     const { username } = req.body || {};
@@ -200,6 +199,18 @@ app.post("/api/posts/:id/like", async (req, res) => {
     res.status(500).json({ error: "like hata" });
   }
 });
+
+// ====== KZAsistan yardımcı ======
+async function getOrCreateAssistant() {
+  let asst = await User.findOne({ username: "KZAsistan" });
+  if (!asst) {
+    asst = await User.create({ username: "KZAsistan", pass: "assistant", roles: ["ASSISTANT"] });
+  } else if (!asst.pass) {
+    asst.pass = "assistant";
+    await asst.save();
+  }
+  return asst;
+}
 
 // ====== KZAsistan ======
 const KB = [
@@ -225,29 +236,35 @@ app.post("/api/assistant/chat", async (req, res) => {
 
 app.post("/api/assistant/post", async (req, res) => {
   try {
+    // 1) Asistan hesabı garanti
+    const asst = await getOrCreateAssistant();
+
+    // 2) Basit rate-limit
+    if (!canPost(asst.username)) {
+      return res.status(429).json({ error: "Asistan biraz bekliyor (rate-limit)" });
+    }
+
+    // 3) Metin şablonları
     const TEMPLATES = [
       "Küçük adımlar büyük işleri başlatır.",
       "Önce veri modelini netleştir, sonra UI kolaylaşır.",
       "Performans için önce ölç, sonra optimize et.",
       "Karmaşık problemi parçalara böl; çözüm hızlanır."
     ];
+    const text = TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)];
+    if (!text) return res.status(500).json({ error: "Şablon bulunamadı" });
 
-    // Asistan hesabı yoksa oluştur
-    const asst = await User.findOne({ username: "KZAsistan" });
-    if (!asst) await User.create({ username: "KZAsistan", pass: "", roles: ["ASSISTANT"] });
-
-    // Rate-limit (KZAsistan adına)
-    if (!canPost("KZAsistan")) return res.status(429).json({ error: "Asistan biraz bekliyor" });
-
+    // 4) Post oluştur
     const doc = await Post.create({
-      author: "KZAsistan",
-      text: TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)],
+      author: asst.username,
+      text,
       private: false
     });
 
-    res.json({ ok: true, post: doc });
-  } catch {
-    res.status(500).json({ error: "assistant post hata" });
+    return res.json({ ok: true, post: doc });
+  } catch (e) {
+    console.error("❌ /api/assistant/post hata:", e);
+    return res.status(500).json({ error: e?.message || "assistant post hata" });
   }
 });
 
