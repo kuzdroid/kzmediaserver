@@ -1,156 +1,192 @@
-// server.js
-// KZMedia + KZAsistan backend
-// ENV: MONGO_URL, JWT_KEY
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>KZMedia + KZAsistan</title>
+<!-- WebLLM: global "mlc" -->
+<script src="https://unpkg.com/@mlc-ai/web-llm/dist/index.js"></script>
+<style>
+  :root{--bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;--primary:#4f8cff;--border:#212532}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+  .header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#11131a;border-bottom:1px solid var(--border)}
+  .container{max-width:1080px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr 340px;gap:12px}
+  .card{background:#11131a;border:1px solid var(--border);border-radius:12px;padding:12px}
+  input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:var(--text);outline:none}
+  button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer;background:var(--primary);color:#fff}
+  .post{margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px}
+  .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  .small{font-size:12px;color:var(--muted)}
+  #progressBarWrap{position:fixed;left:0;bottom:0;width:100%;height:6px;background:#222}
+  #progressBar{height:100%;width:0%;background:#4f8cff;transition:width 0.2s}
+</style>
+</head>
+<body>
+<header class="header">
+  <strong>KZMedia</strong>
+  <span class="small">• sosyal + KZAsistan</span>
+</header>
 
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-const path = require("path");
-const fs = require("fs");
+<main class="container">
+  <section class="card">
+    <h3>Giriş / Kayıt</h3>
+    <div class="row">
+      <input id="txtUser" placeholder="kullanıcı adı (ör: kursatomer@KUZİLER)">
+      <input id="txtPass" placeholder="şifre" type="password">
+      <button id="btnRegister">Kayıt</button>
+      <button id="btnLogin">Giriş</button>
+    </div>
+    <div class="small" style="margin-top:6px">Hazır hesaplar: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER (şifre: KUZİLER)</div>
 
-const app = express();
-const PORT = process.env.PORT || 10000;
-const JWT_KEY = process.env.JWT_KEY || "supersecret-kzmedia";
-const MONGO_URL = process.env.MONGO_URL;
+    <hr style="border-color:#212532">
+    <div id="compose" style="display:none">
+      <h3>Paylaş</h3>
+      <textarea id="postText" rows="3" placeholder="Ne paylaşmak istersin?"></textarea>
+      <input id="postImage" placeholder="Resim URL (opsiyonel)">
+      <input id="postVideo" placeholder="Video URL (opsiyonel)">
+      <label class="row"><input id="postPrivate" type="checkbox"><span class="small">@KUZILER (özel)</span></label>
+      <div class="row">
+        <button id="btnPost">Paylaş</button>
+        <button id="btnRefresh">Yenile</button>
+      </div>
+    </div>
 
-if (!MONGO_URL) {
-  console.error("❌ MONGO_URL env eksik");
-  process.exit(1);
-}
+    <hr style="border-color:#212532">
+    <div class="row">
+      <input id="q" placeholder="Metinde ara...">
+      <button id="btnSearch">Ara</button>
+      <button id="btnClear">Temizle</button>
+    </div>
 
-app.use(cors());
-app.use(bodyParser.json());
+    <h3 style="margin-top:12px">Akış</h3>
+    <div id="feed"></div>
+    <div id="empty" class="small" style="display:none">Gönderi yok</div>
+  </section>
 
-// ====== Mongo Modelleri ======
-const UserSchema = new mongoose.Schema(
-  { username: { type: String, unique: true, required: true }, password: { type: String, required: true } },
-  { timestamps: true }
-);
+  <aside class="card">
+    <h4>KZAsistan</h4>
+    <button id="btnLoad">📥 Model İndir (zorunlu)</button>
+    <div class="row" style="margin-top:6px">
+      <input id="ask" placeholder="Soru / komut yaz">
+      <button id="btnAsk">Sor</button>
+    </div>
+    <div id="ans" class="small" style="white-space:pre-wrap;margin-top:8px;background:#0e1016;border:1px solid #222;border-radius:8px;padding:8px"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnAsistanToFeed">Asistan Mesajını Akışa Yaz</button>
+    </div>
+  </aside>
+</main>
 
-const PostSchema = new mongoose.Schema(
-  {
-    author: { type: String, required: true },
-    text: { type: String, required: true },
-    imageUrl: String,
-    videoUrl: String,
-    private: { type: Boolean, default: false }
-  },
-  { timestamps: true }
-);
+<div id="progressBarWrap"><div id="progressBar"></div></div>
 
-const User = mongoose.model("User", UserSchema);
-const Post = mongoose.model("Post", PostSchema);
+<script>
+  const API = ""; // aynı origin
+  const $ = id => document.getElementById(id);
+  let token = null;
 
-// Varsayılan kullanıcılar (şifre: KUZİLER)
-async function ensureDefaults() {
-  const defaults = [
-    { username: "kursatomer@KUZİLER", password: "KUZİLER" },
-    { username: "elalye@KUZİLER",     password: "KUZİLER" },
-    { username: "sena@KUZİLER",       password: "KUZİLER" },
-    { username: "MR.Selim@KUZİLER",   password: "KUZİLER" }
-  ];
-  for (const d of defaults) {
-    const ex = await User.findOne({ username: d.username }).lean();
-    if (!ex) {
-      const hash = await bcrypt.hash(d.password, 10);
-      await User.create({ username: d.username, password: hash });
+  function esc(s=""){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function setBar(p){ $("progressBar").style.width = Math.max(0, Math.min(100, p)) + "%"; }
+
+  // AUTH
+  $('btnRegister').onclick = async ()=>{
+    const u=$('txtUser').value.trim(), p=$('txtPass').value;
+    if(!u||!p) return alert("Boş bırakılamaz");
+    const r=await fetch(API+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const j=await r.json(); j.ok ? alert("Kayıt OK") : alert(j.error||"Kayıt hata");
+  };
+
+  $('btnLogin').onclick = async ()=>{
+    const u=$('txtUser').value.trim(), p=$('txtPass').value;
+    if(!u||!p) return alert("Boş bırakılamaz");
+    const r=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const j=await r.json();
+    if(!j.ok) return alert(j.error||"Giriş hata");
+    token = j.token;
+    $('compose').style.display = 'block';
+    loadFeed();
+  };
+
+  // POST
+  $('btnPost').onclick = async ()=>{
+    const text=$('postText').value.trim();
+    const imageUrl=$('postImage').value.trim();
+    const videoUrl=$('postVideo').value.trim();
+    const priv=$('postPrivate').checked;
+    if(!text) return alert("Metin boş olamaz");
+    const r=await fetch(API+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({text,imageUrl,videoUrl,private:priv})});
+    const j=await r.json();
+    if(!j.ok) return alert(j.error||"Paylaşım hata");
+    $('postText').value=''; $('postImage').value=''; $('postVideo').value=''; $('postPrivate').checked=false;
+    loadFeed();
+  };
+
+  $('btnRefresh').onclick = ()=> loadFeed();
+  $('btnSearch').onclick = ()=> loadFeed();
+  $('btnClear').onclick = ()=> { $('q').value=''; loadFeed(); };
+
+  async function loadFeed(){
+    if(!token){ $('empty').style.display='block'; $('empty').textContent='Giriş yapınız.'; return; }
+    const q=$('q').value.trim();
+    const r=await fetch(API+('/api/posts/feed?q='+encodeURIComponent(q)),{headers:{'Authorization':'Bearer '+token}});
+    const arr=await r.json(); $('feed').innerHTML='';
+    let shown=0;
+    for(const p of arr){
+      const div=document.createElement('div'); div.className='post';
+      const when=p.createdAt?new Date(p.createdAt).toLocaleString():'';
+      div.innerHTML = `
+        <div class="row"><strong>${esc(p.author)}</strong><span class="small">${when}</span></div>
+        <div>${esc(p.text||'')}</div>
+        ${p.imageUrl?'<div><img src="'+esc(p.imageUrl)+'" style="max-width:100%;border-radius:8px;margin-top:6px"></div>':''}
+        ${p.videoUrl?'<div><video controls src="'+esc(p.videoUrl)+'" style="max-width:100%;border-radius:8px;margin-top:6px"></video></div>':''}
+      `;
+      $('feed').appendChild(div); shown++;
     }
+    $('empty').style.display = shown ? 'none' : 'block';
+    if(!shown) $('empty').textContent='Gönderi yok';
   }
-}
 
-// ====== Auth Middleware ======
-function auth(req, res, next) {
-  const h = req.headers["authorization"];
-  if (!h) return res.status(401).json({ error: "No token" });
-  const token = h.split(" ")[1];
-  try {
-    const decoded = jwt.verify(token, JWT_KEY);
-    req.user = decoded;
-    next();
-  } catch {
-    return res.status(401).json({ error: "Invalid token" });
-  }
-}
+  // KZAsistan (WebLLM)
+  let engine=null;
+  let lastAssistantText="";
 
-// ====== API ======
-app.get("/api/health", async (req, res) => {
-  const uc = await User.countDocuments();
-  const pc = await Post.countDocuments();
-  res.json({ ok: true, name: "KZMedia API", users: uc, posts: pc });
-});
+  $('btnLoad').onclick = async ()=>{
+    try{
+      $('ans').textContent="⏳ Model indiriliyor...";
+      setBar(0);
+      engine = await mlc.CreateMLCEngine(
+        "Llama-2-7b-chat-hf-q4f16_1",
+        { initProgressCallback: (p)=>{ setBar(Math.round(p.progress*100)); $('ans').textContent="📥 Yükleniyor: "+Math.round(p.progress*100)+"%"; } }
+      );
+      setBar(100);
+      $('ans').textContent="✅ Model yüklendi! Soru sorabilirsiniz.";
+    }catch(err){
+      $('ans').textContent="❌ Model yüklenemedi: "+err;
+    }
+  };
 
-app.post("/api/auth/register", async (req, res) => {
-  try {
-    const { username, password } = req.body || {};
-    if (!username || !password) return res.status(400).json({ error: "Eksik alan" });
-    const ex = await User.findOne({ username }).lean();
-    if (ex) return res.status(400).json({ error: "Kullanıcı var" });
-    const hash = await bcrypt.hash(password, 10);
-    await User.create({ username, password: hash });
-    res.json({ ok: true });
-  } catch {
-    res.status(400).json({ error: "Kayıt başarısız" });
-  }
-});
+  $('btnAsk').onclick = async ()=>{
+    if(!engine) return alert("Önce modeli indir!");
+    const q=$('ask').value.trim();
+    if(!q) return;
+    $('ans').textContent="💭 Düşünüyor...";
+    try{
+      const r=await engine.chat.completions.create({messages:[{role:"user",content:q}]});
+      const txt = r.choices?.[0]?.message?.content || "Boş cevap.";
+      lastAssistantText = txt;
+      $('ans').textContent = txt;
+    }catch(err){
+      $('ans').textContent="❌ Hata: "+err;
+    }
+  };
 
-app.post("/api/auth/login", async (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: "Eksik alan" });
-  const u = await User.findOne({ username });
-  if (!u) return res.status(400).json({ error: "Kullanıcı yok" });
-  const ok = await bcrypt.compare(password, u.password);
-  if (!ok) return res.status(400).json({ error: "Şifre yanlış" });
-  const token = jwt.sign({ id: u._id, username: u.username }, JWT_KEY, { expiresIn: "7d" });
-  res.json({ ok: true, user: { username: u.username }, token });
-});
-
-app.post("/api/posts", auth, async (req, res) => {
-  try {
-    const { text, imageUrl, videoUrl, private: priv } = req.body || {};
-    if (!text) return res.status(400).json({ error: "Metin boş" });
-    const doc = await Post.create({ author: req.user.username, text, imageUrl, videoUrl, private: !!priv });
-    res.json({ ok: true, post: doc });
-  } catch {
-    res.status(500).json({ error: "Post hata" });
-  }
-});
-
-app.get("/api/posts/feed", auth, async (req, res) => {
-  try {
-    const list = await Post.find({}, null, { sort: { createdAt: -1 }, limit: 200 }).lean();
-    res.json(list);
-  } catch {
-    res.status(500).json({ error: "Feed hata" });
-  }
-});
-
-app.post("/api/assistant/post", async (req, res) => {
-  try {
-    const { text } = req.body || {};
-    if (!text) return res.status(400).json({ error: "Boş mesaj" });
-    const doc = await Post.create({ author: "KZAsistan", text, private: false });
-    res.json({ ok: true, post: doc });
-  } catch {
-    res.status(500).json({ error: "assistant post hata" });
-  }
-});
-
-// ====== index.html döndür (public yok) ======
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-// ====== Start ======
-mongoose
-  .connect(MONGO_URL)
-  .then(async () => {
-    await ensureDefaults();
-    app.listen(PORT, () => console.log(`🚀 Sunucu ayakta: http://localhost:${PORT}`));
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB bağlantı hatası:", err.message);
-    process.exit(1);
-  });
+  $('btnAsistanToFeed').onclick = async ()=>{
+    if(!lastAssistantText) return alert("Önce asistan bir şey yazsın.");
+    const r=await fetch(API+'/api/assistant/post',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:lastAssistantText})});
+    const j=await r.json();
+    if(!j.ok) return alert(j.error||"Asistan yazamadı");
+    if(token) loadFeed();
+  };
+</script>
+</body>
+</html>
