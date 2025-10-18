@@ -1,15 +1,12 @@
 {
-  "name": "kzmedia-nodb",
-  "version": "1.0.0",
-  "description": "KZMedia (Mongo'suz) – users in RAM, posts on disk",
+  "name": "kzmedia-kzasistan",
+  "version": "1.0.2",
+  "description": "KZMedia + KZAsistan (localStorage + WebLLM, model auto-pick)",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "express-rate-limit": "^7.1.0",
-    "helmet": "^7.0.0",
-    "jsonwebtoken": "^9.0.2"
+    "express": "^4.19.2"
   }
 }
