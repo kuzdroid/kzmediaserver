@@ -6,107 +6,195 @@
 <title>KZMedia + KZAsistan</title>
 <script src="https://unpkg.com/@mlc-ai/web-llm/dist/index.js"></script>
 <style>
-  body{margin:0;font-family:sans-serif;background:#0b0c10;color:#eee}
-  .header{padding:12px;background:#11131a;border-bottom:1px solid #222;display:flex;justify-content:space-between}
-  .container{max-width:1000px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr 320px;gap:12px}
-  .card{background:#11131a;padding:12px;border-radius:10px}
-  input,textarea{width:100%;padding:8px;margin-top:6px;border-radius:6px;border:1px solid #333;background:#0e1016;color:#eee}
-  button{padding:8px 12px;margin-top:8px;border:none;border-radius:6px;cursor:pointer;background:#4f8cff;color:#fff}
-  .post{margin-top:10px;padding:10px;border:1px solid #333;border-radius:8px}
-  #ans{white-space:pre-wrap;background:#222;padding:10px;border-radius:6px;margin-top:10px}
+  :root{--bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;--primary:#4f8cff;--border:#212532}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+  .header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#11131a;border-bottom:1px solid var(--border)}
+  .container{max-width:1080px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr 340px;gap:12px}
+  .card{background:#11131a;border:1px solid #212532;border-radius:12px;padding:12px}
+  input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:var(--text);outline:none}
+  button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer;background:var(--primary);color:#fff}
+  .post{margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px}
+  .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  .small{font-size:12px;color:var(--muted)}
+  /* Alttaki yüklenme barı */
+  #progressBarWrap{position:fixed;left:0;bottom:0;width:100%;height:6px;background:#222}
+  #progressBar{height:100%;width:0%;background:#4f8cff;transition:width 0.2s}
 </style>
 </head>
 <body>
 <header class="header">
   <strong>KZMedia</strong>
-  <span>+ KZAsistan</span>
+  <span class="small">• sosyal + KZAsistan</span>
 </header>
 
 <main class="container">
+  <!-- Sol: KZMedia -->
   <section class="card">
     <h3>Giriş / Kayıt</h3>
-    <input id="txtUser" placeholder="kullanıcı adı">
-    <input id="txtPass" placeholder="şifre" type="password">
-    <button id="btnRegister">Kayıt</button>
-    <button id="btnLogin">Giriş</button>
-    <hr>
+    <div class="row">
+      <input id="txtUser" placeholder="kullanıcı adı (ör: kursatomer@KUZİLER)">
+      <input id="txtPass" placeholder="şifre" type="password">
+      <button id="btnRegister">Kayıt</button>
+      <button id="btnLogin">Giriş</button>
+    </div>
+    <div class="small" style="margin-top:6px">Hazır hesaplar: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER (şifre: KUZİLER)</div>
+
+    <hr style="border-color:#212532">
+
     <div id="compose" style="display:none">
       <h3>Paylaş</h3>
-      <textarea id="postText" rows="3"></textarea>
-      <input id="postImage" placeholder="Resim URL">
-      <input id="postVideo" placeholder="Video URL">
-      <label><input id="postPrivate" type="checkbox">@KUZILER</label>
-      <button id="btnPost">Paylaş</button>
-      <button id="btnRefresh">Yenile</button>
+      <textarea id="postText" rows="3" placeholder="Ne paylaşmak istersin?"></textarea>
+      <input id="postImage" placeholder="Resim URL (opsiyonel)">
+      <input id="postVideo" placeholder="Video URL (opsiyonel)">
+      <label class="row"><input id="postPrivate" type="checkbox"><span class="small">@KUZILER (özel)</span></label>
+      <div class="row">
+        <button id="btnPost">Paylaş</button>
+        <button id="btnRefresh">Yenile</button>
+      </div>
     </div>
-    <h3>Akış</h3>
+
+    <hr style="border-color:#212532">
+
+    <div class="row">
+      <input id="q" placeholder="Metinde/kişide ara...">
+      <button id="btnSearch">Ara</button>
+      <button id="btnClear">Temizle</button>
+    </div>
+
+    <h3 style="margin-top:12px">Akış</h3>
     <div id="feed"></div>
+    <div id="empty" class="small" style="display:none">Gönderi yok</div>
   </section>
 
+  <!-- Sağ: KZAsistan -->
   <aside class="card">
     <h4>KZAsistan</h4>
-    <button id="btnLoad">📥 Model İndir</button>
-    <input id="ask" placeholder="Sor...">
-    <button id="btnAsk">Sor</button>
-    <div id="ans"></div>
+    <button id="btnLoad">📥 Model İndir (zorunlu)</button>
+    <div class="row">
+      <input id="ask" placeholder="Soru veya not yaz...">
+      <button id="btnAsk">Sor</button>
+    </div>
+    <div id="ans" class="small" style="white-space:pre-wrap;margin-top:8px;background:#0e1016;border:1px solid #222;border-radius:8px;padding:8px"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnAsistanToFeed">Asistan Mesajını Akışa Yaz</button>
+    </div>
   </aside>
 </main>
 
+<!-- Alttaki yüklenme barı -->
+<div id="progressBarWrap"><div id="progressBar"></div></div>
+
 <script>
-const API="";
-const $=id=>document.getElementById(id);
-let token=null;
+  const API = ""; // aynı origin
+  const $ = id => document.getElementById(id);
+  let token = null;
 
-// Kayıt
-$('btnRegister').onclick=async()=>{
-  const u=$('txtUser').value,p=$('txtPass').value;
-  const r=await fetch(API+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
-  const j=await r.json(); alert(j.ok?"Kayıt OK":"Hata:"+j.error);
-};
+  // ========== YARDIMCI ==========
+  function esc(s=""){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function setBar(p){ $("progressBar").style.width = Math.max(0, Math.min(100, p)) + "%"; }
 
-// Giriş
-$('btnLogin').onclick=async()=>{
-  const u=$('txtUser').value,p=$('txtPass').value;
-  const r=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
-  const j=await r.json();
-  if(j.ok){token=j.token;$('compose').style.display='block';loadFeed();}
-  else alert(j.error);
-};
+  // ========== AUTH ==========
+  $('btnRegister').onclick = async ()=>{
+    const u=$('txtUser').value.trim(), p=$('txtPass').value;
+    if(!u||!p) return alert("Boş bırakılamaz");
+    const r=await fetch(API+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const j=await r.json(); j.ok ? alert("Kayıt OK") : alert(j.error||"Kayıt hata");
+  };
 
-// Post
-$('btnPost').onclick=async()=>{
-  const text=$('postText').value;
-  const r=await fetch(API+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({text})});
-  if(r.ok){$('postText').value='';loadFeed();}
-};
+  $('btnLogin').onclick = async ()=>{
+    const u=$('txtUser').value.trim(), p=$('txtPass').value;
+    if(!u||!p) return alert("Boş bırakılamaz");
+    const r=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const j=await r.json();
+    if(!j.ok) return alert(j.error||"Giriş hata");
+    token = j.token;
+    $('compose').style.display = 'block';
+    loadFeed();
+  };
 
-// Feed
-async function loadFeed(){
-  const r=await fetch(API+'/api/posts/feed',{headers:{'Authorization':'Bearer '+token}});
-  const arr=await r.json();$('feed').innerHTML='';
-  arr.forEach(p=>{
-    const d=document.createElement('div');
-    d.className='post';
-    d.innerHTML=`<b>${p.author}</b>: ${p.text}`;
-    $('feed').appendChild(d);
-  });
-}
-$('btnRefresh').onclick=loadFeed;
+  // ========== POST ==========
+  $('btnPost').onclick = async ()=>{
+    const text=$('postText').value.trim();
+    const imageUrl=$('postImage').value.trim();
+    const videoUrl=$('postVideo').value.trim();
+    const priv=$('postPrivate').checked;
+    if(!text) return alert("Metin boş olamaz");
+    const r=await fetch(API+'/api/posts',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({text,imageUrl,videoUrl,private:priv})});
+    const j=await r.json();
+    if(!j.ok) return alert(j.error||"Paylaşım hata");
+    $('postText').value=''; $('postImage').value=''; $('postVideo').value=''; $('postPrivate').checked=false;
+    loadFeed();
+  };
 
-// === KZAsistan ===
-let engine=null;
-$('btnLoad').onclick=async()=>{
-  $('ans').textContent="⏳ Model indiriliyor...";
-  engine=await webllm.CreateMLCEngine("Llama-2-7b-chat-hf-q4f16_1",{initProgressCallback:(p)=>{ $('ans').textContent="📥 "+Math.round(p.progress*100)+"%";}});
-  $('ans').textContent="✅ Model hazır!";
-};
-$('btnAsk').onclick=async()=>{
-  if(!engine) return alert("Önce modeli indir!");
-  const q=$('ask').value;
-  $('ans').textContent="💭 Düşünüyor...";
-  const r=await engine.chat.completions.create({messages:[{role:"user",content:q}]});
-  $('ans').textContent=r.choices[0].message.content;
-};
+  $('btnRefresh').onclick = ()=> loadFeed();
+  $('btnSearch').onclick = ()=> loadFeed();
+  $('btnClear').onclick = ()=> { $('q').value=''; loadFeed(); };
+
+  async function loadFeed(){
+    if(!token){ $('empty').style.display='block'; $('empty').textContent='Giriş yapınız.'; return; }
+    const q=$('q').value.trim();
+    const r=await fetch(API+`/api/posts/feed?q=${encodeURIComponent(q)}`,{headers:{'Authorization':'Bearer '+token}});
+    const arr=await r.json(); $('feed').innerHTML='';
+    let shown=0;
+    for(const p of arr){
+      const div=document.createElement('div'); div.className='post';
+      const when=p.createdAt?new Date(p.createdAt).toLocaleString():'';
+      div.innerHTML = `
+        <div class="row"><strong>${esc(p.author)}</strong><span class="small">${when}</span></div>
+        <div>${esc(p.text||'')}</div>
+        ${p.imageUrl?`<div><img src="${esc(p.imageUrl)}" style="max-width:100%;border-radius:8px;margin-top:6px"></div>`:''}
+        ${p.videoUrl?`<div><video controls src="${esc(p.videoUrl)}" style="max-width:100%;border-radius:8px;margin-top:6px"></video></div>`:''}
+      `;
+      $('feed').appendChild(div); shown++;
+    }
+    $('empty').style.display = shown ? 'none' : 'block';
+    if(!shown) $('empty').textContent='Gönderi yok';
+  }
+
+  // ========== KZAsistan (WebLLM) ==========
+  let engine=null;
+  let lastAssistantText="";
+
+  $('btnLoad').onclick = async ()=>{
+    try{
+      $('ans').textContent="⏳ Model indiriliyor...";
+      setBar(0);
+      engine = await webllm.CreateMLCEngine(
+        "Llama-2-7b-chat-hf-q4f16_1",
+        { initProgressCallback: (p)=>{ setBar(Math.round(p.progress*100)); $('ans').textContent="📥 Yükleniyor: "+Math.round(p.progress*100)+"%"; } }
+      );
+      setBar(100);
+      $('ans').textContent="✅ Model yüklendi! Soru sorabilirsiniz.";
+    }catch(err){
+      $('ans').textContent="❌ Model yüklenemedi: "+err;
+    }
+  };
+
+  $('btnAsk').onclick = async ()=>{
+    if(!engine) return alert("Önce modeli indir!");
+    const q=$('ask').value.trim();
+    if(!q) return;
+    $('ans').textContent="💭 Düşünüyor...";
+    try{
+      const r=await engine.chat.completions.create({messages:[{role:"user",content:q}]});
+      const txt = r.choices?.[0]?.message?.content || "Boş cevap.";
+      lastAssistantText = txt;
+      $('ans').textContent = txt;
+    }catch(err){
+      $('ans').textContent="❌ Hata: "+err;
+    }
+  };
+
+  // Asistan mesajını akışa yaz (server tarafı KZAsistan olarak kaydeder)
+  $('btnAsistanToFeed').onclick = async ()=>{
+    if(!lastAssistantText) return alert("Önce asistan bir şey yazsın.");
+    const r=await fetch(API+'/api/assistant/post',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:lastAssistantText})});
+    const j=await r.json();
+    if(!j.ok) return alert(j.error||"Asistan yazamadı");
+    // Güncelle
+    if(token) loadFeed();
+  };
 </script>
 </body>
 </html>
