@@ -187,6 +187,10 @@
     if(!j.ok) return alert(j.error||"Asistan yazamadı");
     if(token) loadFeed();
   };
+  <script src="https://unpkg.com/@mlc-ai/web-llm/dist/index.min.js"></script>
+<script>
+  // Eğer mlc tanımlı değilse webllm'yi mlc'ye ata
+  window.mlc = window.mlc || window.webllm;
 </script>
 </body>
 </html>
