@@ -1,26 +1,102 @@
-// server.js — KZMedia + KZAsistan (statik servis) v1.0.2
-const express = require("express");
-const path = require("path");
-const app = express();
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
+dotenv.config();
+
+const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static(path.join(__dirname, "public")));
+// WebLLM için gerekli güvenlik başlıkları (HTTPS altında çalışır)
+app.use((req, res, next) => {
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+  next();
+});
 
+app.use(cors());
+app.use(express.json());
+
+// ---- MongoDB (yalnızca gönderiler) ----
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/kzmedia";
+const DB_NAME   = process.env.DB_NAME   || "kzmedia";
+
+mongoose.connect(MONGO_URI, { dbName: DB_NAME })
+  .then(() => console.log("✅ MongoDB bağlandı"))
+  .catch(err => console.error("❌ MongoDB bağlantı hatası:", err.message));
+
+// Post şeması
+const postSchema = new mongoose.Schema({
+  author:    { type: String, default: "Anonim" },
+  text:      { type: String, required: true },
+  imageUrl:  String,
+  videoUrl:  String,
+  private:   { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now },
+  likes:     { type: Number, default: 0 }
+});
+const Post = mongoose.model("Post", postSchema);
+
+// ---- API ----
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, app: "KZMedia+KZAsistan", version: "1.0.2" });
+  res.json({ ok: true, name: "KZMedia API", public: false, health: "/api/health" });
 });
 
+app.post("/api/posts", async (req, res) => {
+  try {
+    const { author, text, imageUrl, videoUrl, private: isPrivate } = req.body || {};
+    if (!text || !String(text).trim()) {
+      return res.status(400).json({ error: "text zorunlu" });
+    }
+    const p = await Post.create({
+      author: (author && String(author).trim()) || "Anonim",
+      text: String(text),
+      imageUrl: imageUrl || undefined,
+      videoUrl: videoUrl || undefined,
+      private: !!isPrivate
+    });
+    res.json(p);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get("/api/posts", async (req, res) => {
+  const q = (req.query.q || "").toString().toLowerCase();
+  let posts = await Post.find({}).sort({ createdAt: -1 }).limit(200).lean();
+  if (q) {
+    posts = posts.filter(p =>
+      (p.text || "").toLowerCase().includes(q) ||
+      (p.author || "").toLowerCase().includes(q)
+    );
+  }
+  res.json(posts);
+});
+
+app.post("/api/assistant/post", async (req, res) => {
+  try {
+    const { text } = req.body || {};
+    if (!text || !String(text).trim()) {
+      return res.status(400).json({ error: "text zorunlu" });
+    }
+    const p = await Post.create({ author: "KZAsistan", text: String(text) });
+    res.json({ ok: true, id: p._id });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// ---- index.html kökten servis (public klasörü yok) ----
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// SPA fallback (api dışındaki tüm yollar index.html’e düşsün)
-app.get("*", (req, res, next) => {
-  if (req.path.startsWith("/api/")) return next();
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
+// ---- Başlat ----
 app.listen(PORT, () => {
-  console.log(`🚀 KZMedia+KZAsistan çalışıyor: http://localhost:${PORT}`);
+  console.log(`🚀 KZMedia ayakta: http://localhost:${PORT}`);
 });
