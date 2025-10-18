@@ -1,4 +1,6 @@
-// KZMedia + KZAsistan (public klasör YOK) • Render uyumlu
+// KZMedia + KZAsistan • Tek dosya backend (public klasörü YOK)
+// ENV: MONGO_URL (Atlas SRV), JWT_KEY (uzun gizli anahtar)
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -13,30 +15,33 @@ const JWT_KEY = process.env.JWT_KEY || "supersecret-kzmedia";
 const MONGO_URL = process.env.MONGO_URL;
 
 if (!MONGO_URL) {
-  console.error("❌ MONGO_URL env eksik.");
+  console.error("❌ MONGO_URL env eksik. Render -> Environment sekmesinden ekleyin.");
   process.exit(1);
 }
+
+// Güvenlik başlıkları (WebLLM için)
+app.use((req, res, next) => {
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+  next();
+});
 
 app.use(cors());
 app.use(bodyParser.json());
 
 // ====== Mongo Modelleri ======
 const UserSchema = new mongoose.Schema(
-  {
-    username: { type: String, unique: true, required: true, trim: true },
-    password: { type: String, required: true }
-  },
+  { username: { type: String, unique: true, required: true, trim: true },
+    password: { type: String, required: true } },
   { timestamps: true }
 );
 
 const PostSchema = new mongoose.Schema(
-  {
-    author: { type: String, required: true }, // username veya "KZAsistan"
+  { author: { type: String, required: true },
     text: { type: String, required: true },
     imageUrl: { type: String, default: null },
     videoUrl: { type: String, default: null },
-    private: { type: Boolean, default: false }
-  },
+    private: { type: Boolean, default: false } },
   { timestamps: true }
 );
 
@@ -60,7 +65,7 @@ async function ensureDefaults() {
   }
 }
 
-// ====== Yardımcılar ======
+// Auth middleware
 function auth(req, res, next) {
   const h = req.headers["authorization"];
   if (!h) return res.status(401).json({ error: "No token" });
@@ -74,13 +79,13 @@ function auth(req, res, next) {
   }
 }
 
+// Basit temizlik (küfür filtresi + XSS koruması)
 function sanitize(s = "") {
   const t = String(s).slice(0, 2000);
   if (/<script|onerror=|onload=|javascript:/i.test(t)) return "";
-  // basit küfür filtresi
   const bad = ["salak","aptal","gerizekalı","orospu","piç","şerefsiz","lanet"];
   let out = t;
-  for (const w of bad) out = out.replace(new RegExp(`\\b${w}\\b`,"ig"), "★");
+  for (const w of bad) out = out.replace(new RegExp(`\\b${w}\\b`, "ig"), "★");
   return out;
 }
 
@@ -88,7 +93,7 @@ function sanitize(s = "") {
 app.get("/api/health", async (req, res) => {
   const uc = await User.countDocuments();
   const pc = await Post.countDocuments();
-  res.json({ ok: true, name: "KZMedia + KZAsistan", users: uc, posts: pc });
+  res.json({ ok: true, name: "KZMedia API", users: uc, posts: pc, public: false });
 });
 
 app.post("/api/auth/register", async (req, res) => {
@@ -100,7 +105,7 @@ app.post("/api/auth/register", async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     await User.create({ username, password: hash });
     res.json({ ok: true });
-  } catch (e) {
+  } catch {
     res.status(400).json({ error: "Kayıt başarısız" });
   }
 });
@@ -148,12 +153,12 @@ app.get("/api/posts/feed", auth, async (req, res) => {
   }
 });
 
-// KZAsistan’ın akışa mesaj atması (AUTH YOK — direkt KZAsistan adına yazar)
+// KZAsistan’ın akışa mesaj atması (AUTH gerekmez — “KZAsistan” adına yazar)
 app.post("/api/assistant/post", async (req, res) => {
   try {
     const { text } = req.body || {};
     const safe = sanitize(text);
-    if (!safe) return res.status(400).json({ error: "Metin reddedildi" });
+    if (!safe) return res.status(400).json({ error: "Boş/uygunsuz mesaj" });
     const doc = await Post.create({ author: "KZAsistan", text: safe, private: false });
     res.json({ ok: true, post: doc });
   } catch {
@@ -161,20 +166,22 @@ app.post("/api/assistant/post", async (req, res) => {
   }
 });
 
-// index.html doğrudan gönder (public klasör YOK)
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+// ====== index.html servis (kökte duruyor) ======
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
-// 404 fallback (SPA)
-app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-
-// ====== Start ======
+// ====== Başlat ======
 mongoose
   .connect(MONGO_URL)
   .then(async () => {
     await ensureDefaults();
-    app.listen(PORT, () => console.log(`🚀 Sunucu ayakta: http://localhost:${PORT}`));
+    app.listen(PORT, () => {
+      console.log(`🚀 Sunucu ayakta: http://localhost:${PORT}`);
+      console.log(`ℹ️ Health: /api/health`);
+    });
   })
   .catch((err) => {
-    console.error("❌ MongoDB bağlantı hatası:", err?.message || err);
+    console.error("❌ MongoDB bağlantı hatası:", err.message);
     process.exit(1);
   });
