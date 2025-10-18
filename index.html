@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>KZMedia + KZAsistan • v1.0.1</title>
+<title>KZMedia + KZAsistan • v1.0.2</title>
 <style>
 :root{--bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;--primary:#4f8cff;--border:#212532}
 *{box-sizing:border-box}
@@ -12,7 +12,7 @@ body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);c
 .container{max-width:1100px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:900px){.container{grid-template-columns:1fr 360px}}
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
-input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:var(--text)}
+input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:#e8eaed}
 button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer;background:var(--primary);color:#fff}
 button.ghost{background:#222}
 .small{font-size:13px;color:var(--muted)}
@@ -32,7 +32,7 @@ button.ghost{background:#222}
 <body>
 <div class="header">
   <div><b>KZMedia</b> <span class="small">• localStorage</span></div>
-  <div class="small">KZAsistan <span id="gpuInfo">WebGPU kontrol…</span></div>
+  <div class="small">KZAsistan <span id="gpuInfo">WebGPU kontrol…</span> <span id="modelName"></span></div>
 </div>
 
 <main class="container">
@@ -73,7 +73,7 @@ button.ghost{background:#222}
       <h3>KZAsistan</h3>
       <div id="diag" class="small"></div>
       <div class="asst" style="margin-top:8px">
-        <div class="row"><button id="loadModel">Modeli Yükle (TinyLlama)</button></div>
+        <div class="row"><button id="loadModel">Modeli Yükle (Otomatik)</button></div>
         <div id="chatBox" style="display:none">
           <div id="chat"></div>
           <div class="row" style="margin-top:8px">
@@ -93,11 +93,11 @@ button.ghost{background:#222}
   <div class="label" id="bottomLabel">Yükleme: %0</div>
 </div>
 
-<!-- ====== KZMedia (localStorage) + KZAsistan (WebLLM loader) ====== -->
 <script>
 /* =============== KZMedia (localStorage) =============== */
 let DATA = loadData();
 const $ = id => document.getElementById(id);
+
 (function ensureDefaults(){
   if(!DATA.users) DATA.users = {};
   const defaults = {
@@ -115,7 +115,9 @@ function saveData(){ localStorage.setItem("KZMedia.data", JSON.stringify(DATA));
 function setMe(u){
   window._ME=u; $('meName').textContent=u||"—";
   $('meFollowers').textContent=(u&&DATA.users[u])?DATA.users[u].followers.length:0;
-  $('authBox').style.display=u?"none":"block"; $('composeBox').style.display=u?"block":"none"; loadFeed();
+  $('authBox').style.display=u?"none":"block";
+  $('composeBox').style.display=u?"block":"none";
+  loadFeed();
 }
 $('btnRegister').onclick=()=>{ const n=$('txtUser').value.trim(),p=$('txtPass').value;
   if(!n||!p) return alert("Boş olamaz"); if(DATA.users[n]) return alert("Zaten var");
@@ -133,7 +135,7 @@ function loadFeed(){
   for(const p of list){
     const div=document.createElement("div"); div.className="post";
     const liked=_ME && p.likes.includes(_ME);
-    div.innerHTML=
+    div.innerHTML =
       '<div class="meta"><div>'+p.author+'</div><div class="small">'+new Date(p.createdAt).toLocaleString()+'</div></div>'+
       '<div>'+p.text+'</div>'+
       '<div class="row" style="margin-top:8px">'+
@@ -145,8 +147,13 @@ function loadFeed(){
       saveData(); loadFeed(); };
     div.querySelector(".btn-follow").onclick=()=>{ if(!_ME) return alert("Giriş yap");
       const me=DATA.users[_ME], target=DATA.users[p.author]; if(!target||_ME===p.author) return;
-      if(me.following.includes(p.author)){ me.following=me.following.filter(u=>u!==p.author); target.followers=target.followers.filter(u=>u!==_ME); }
-      else { me.following.push(p.author); target.followers.push(_ME); }
+      if(me.following.includes(p.author)){
+        me.following=me.following.filter(u=>u!==p.author);
+        target.followers=target.followers.filter(u=>u!==_ME);
+      } else {
+        me.following.push(p.author);
+        target.followers.push(_ME);
+      }
       saveData(); setMe(_ME); loadFeed();
     };
     feed.appendChild(div);
@@ -154,9 +161,10 @@ function loadFeed(){
 }
 setMe(null);
 
-/* =============== KZAsistan (loader) =============== */
+/* =============== KZAsistan (WebLLM loader + AUTO MODEL PICK) =============== */
 const gpuInfo = $('gpuInfo');
 const diag = $('diag');
+const modelName = $('modelName');
 const loadBtn = $('loadModel');
 const chatBox = $('chatBox');
 const chat = $('chat');
@@ -177,13 +185,17 @@ function setProgress(pct, text){
 }
 
 let CreateMLCEngine = null;
+let prebuilt = null;
+
 async function loadWebLLM(){
   try {
+    // 1) ESM
     const mod = await import("https://esm.run/@mlc-ai/web-llm");
-    if (mod?.CreateMLCEngine) { CreateMLCEngine = mod.CreateMLCEngine; log("✅ WebLLM (ESM) yüklendi"); return; }
+    if (mod?.CreateMLCEngine){ CreateMLCEngine = mod.CreateMLCEngine; prebuilt = mod?.prebuiltAppConfig; log("✅ WebLLM (ESM)"); return; }
     throw new Error("ESM export yok");
   } catch (e) {
-    log("ℹ️ ESM başarısız, UMD deneniyor… ("+e.message+")");
+    log("ℹ️ ESM olmadı, UMD deneniyor… ("+e.message+")");
+    // 2) UMD fallback
     await new Promise((resolve, reject)=>{
       const s=document.createElement("script");
       s.src="https://unpkg.com/@mlc-ai/web-llm";
@@ -192,12 +204,40 @@ async function loadWebLLM(){
       s.onerror=()=>reject(new Error("UMD yüklenemedi"));
       document.head.appendChild(s);
     });
-    if (window.webllm?.CreateMLCEngine) { CreateMLCEngine = window.webllm.CreateMLCEngine; log("✅ WebLLM (UMD) yüklendi"); return; }
+    if (window.webllm?.CreateMLCEngine){ 
+      CreateMLCEngine = window.webllm.CreateMLCEngine; 
+      prebuilt = window.webllm?.prebuiltAppConfig;
+      log("✅ WebLLM (UMD)");
+      return; 
+    }
     throw new Error("UMD export yok");
   }
 }
 
-const MODEL_ID = "TinyLlama-1.1B-Chat-v1.0-q4f16_1"; // destekli ve küçük
+/* --- Otomatik Model Seçimi ---
+   1) prebuilt.model_list varsa ordan al.
+   2) Tercih sırasına göre uygun olanı seç (varsa).
+   3) Hiçbiri yoksa listeden ilkini al.
+*/
+function pickModelId(){
+  const list = (prebuilt?.model_list || []).map(m=>m.model_id);
+  if (!list.length){ throw new Error("Model listesi boş"); }
+  const preferredOrder = [
+    // küçük ve yaygın olanlar:
+    "RedPajama-INCITE-Chat-3B-v1-q4f16_1",
+    "Llama-3-8B-Instruct-q4f16_1",
+    "Llama-3-8B-Instruct-q4f32_1",
+    "Llama-3.2-1B-Instruct-q4f32_1",
+    "Phi-2-q4f16_1",
+    "TinyLlama-1.1B-Chat-v1.0-q4f16_1",
+  ];
+  for (const id of preferredOrder){
+    if (list.includes(id)) return id;
+  }
+  // tercihler yoksa ilkini kullan
+  return list[0];
+}
+
 const BAD_WORDS = ["salak","aptal","mal","gerizekalı","şerefsiz","orospu","piç","lanet"];
 const clean = s => BAD_WORDS.reduce((t,w)=>t.replace(new RegExp("\\b"+w+"\\b","gi"), m=>"★".repeat(m.length)), s);
 function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
@@ -209,13 +249,16 @@ function addBubble(role, text, asCode=false){
 
 let engine=null, history=[];
 loadBtn.addEventListener("click", async ()=>{
-  if(!isSecure){ log("❌ HTTPS veya localhost üzerinden açmalısın."); return; }
-  if(!("gpu" in navigator)){ log("❌ WebGPU yok (Chrome/Edge 113+ gerekli)."); return; }
+  if(!isSecure){ log("❌ HTTPS veya localhost üzerinden aç."); return; }
+  if(!("gpu" in navigator)){ log("❌ WebGPU yok (Chrome/Edge 113+)."); return; }
 
-  loadBtn.disabled = true; setProgress(0, "Model başlatılıyor…");
+  loadBtn.disabled = true; setProgress(0, "WebLLM yükleniyor…");
   try{
     await loadWebLLM();
-    engine = await CreateMLCEngine(MODEL_ID, { initProgressCallback: (r)=> setProgress(r.progress ?? 0, r.text || "") });
+    const modelId = pickModelId();
+    modelName.textContent = "• Model: "+modelId;
+    setProgress(0.01, "Model başlatılıyor…");
+    engine = await CreateMLCEngine(modelId, { initProgressCallback: (r)=> setProgress(r.progress ?? 0, r.text || "") });
     history=[{role:"system",content:"You are KZAsistan, helpful Turkish assistant. Avoid profanity. If user asks code, return concise and correct code blocks."}];
     chatBox.style.display="block";
     addBubble("KZAsistan","Hazırım! Kod yazabilir, ödevlerine yardım edebilirim. Ne istersin?");
@@ -248,4 +291,3 @@ q.addEventListener("keydown", e=>{ if(e.key==="Enter") ask(); });
 </script>
 </body>
 </html>
-
