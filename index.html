@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>KZMedia + KZAsistan • v1.0.2</title>
+<style>
+:root{--bg:#0b0c10;--card:#11131a;--text:#e8eaed;--muted:#a3a7b0;--primary:#4f8cff;--border:#212532}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+.header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border)}
+.container{max-width:1100px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:900px){.container{grid-template-columns:1fr 360px}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
+input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e1016;color:#e8eaed}
+button{padding:8px 10px;border-radius:8px;border:none;cursor:pointer;background:var(--primary);color:#fff}
+button.ghost{background:#222}
+.small{font-size:13px;color:var(--muted)}
+.feed .post{margin-top:12px;padding:12px;border-radius:10px;border:1px solid var(--border);background:#15171f}
+.post .meta{display:flex;justify-content:space-between;align-items:center}
+.footer{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
+.asst{display:flex;flex-direction:column;gap:8px}
+.bubble{padding:10px;border:1px solid var(--border);border-radius:10px;background:#141722;white-space:pre-wrap}
+.role{font-size:12px;color:var(--muted);margin-bottom:4px}
+.code{overflow:auto;background:#0e1016;border:1px solid #1d2130;border-radius:8px;padding:8px;margin-top:6px}
+.bottom-progress{position:fixed;left:0;right:0;bottom:0;height:10px;background:#0e1016;border-top:1px solid #1a1d26;z-index:50}
+.bottom-progress .bar{height:100%;width:0%;background:var(--primary);transition:width .2s ease}
+.bottom-progress .label{position:absolute;right:8px;bottom:14px;font-size:12px;color:#a3a7b0;user-select:none}
+.row{display:flex;gap:8px;align-items:center}
+</style>
+</head>
+<body>
+<div class="header">
+  <div><b>KZMedia</b> <span class="small">• localStorage</span></div>
+  <div class="small">KZAsistan <span id="gpuInfo">WebGPU kontrol…</span> <span id="modelName"></span></div>
+</div>
+
+<main class="container">
+  <!-- Sol: KZMedia -->
+  <section class="card">
+    <div id="authBox">
+      <h3>Giriş / Kayıt</h3>
+      <input id="txtUser" placeholder="Kullanıcı adı (örn: kursatomer@KUZİLER)">
+      <input id="txtPass" placeholder="Şifre" type="password">
+      <div style="margin-top:6px">
+        <button id="btnRegister">Kayıt Ol</button>
+        <button id="btnLogin" class="ghost">Giriş</button>
+      </div>
+      <div class="small" style="margin-top:8px">
+        Hazır kullanıcılar: kursatomer@KUZİLER, elalye@KUZİLER, sena@KUZİLER, MR.Selim@KUZİLER (şifre hepsi: KUZİLER)
+      </div>
+    </div>
+
+    <div id="composeBox" style="display:none;margin-top:12px">
+      <h3>Paylaş</h3>
+      <textarea id="postText" rows="3" placeholder="Ne paylaşmak istersin?"></textarea>
+      <div style="margin-top:6px"><button id="btnPost">Paylaş</button></div>
+    </div>
+
+    <hr>
+    <h3>Akış</h3>
+    <div id="feed" class="feed"></div>
+    <div id="empty" class="small" style="display:none">Henüz gönderi yok.</div>
+    <div class="footer">KZMedia • Demo</div>
+  </section>
+
+  <!-- Sağ: KZAsistan -->
+  <aside class="card">
+    <div class="small">Şu anki kullanıcı: <strong id="meName">—</strong></div>
+    <div class="small" style="margin-top:6px">Takipçi: <strong id="meFollowers">0</strong></div>
+    <hr>
+    <div>
+      <h3>KZAsistan</h3>
+      <div id="diag" class="small"></div>
+      <div class="asst" style="margin-top:8px">
+        <div class="row"><button id="loadModel">Modeli Yükle (Otomatik)</button></div>
+        <div id="chatBox" style="display:none">
+          <div id="chat"></div>
+          <div class="row" style="margin-top:8px">
+            <input id="q" placeholder="Kod yazdır, ödev sor, araştırma iste… (Enter)"/>
+            <button id="send">Gönder</button>
+          </div>
+          <div class="small" id="hint">İpucu: “Python’da bubble sort kodu yazar mısın?”</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- Altta mavi ilerleme çubuğu -->
+<div class="bottom-progress">
+  <div class="bar" id="bottomBar"></div>
+  <div class="label" id="bottomLabel">Yükleme: %0</div>
+</div>
+
+<script>
+/* =============== KZMedia (localStorage) =============== */
+let DATA = loadData();
+const $ = id => document.getElementById(id);
+
+(function ensureDefaults(){
+  if(!DATA.users) DATA.users = {};
+  const defaults = {
+    "kursatomer@KUZİLER": { pass:"KUZİLER", roles:["ADMIN","KUZILER"], followers:[], following:[] },
+    "elalye@KUZİLER":     { pass:"KUZİLER", roles:["KUZILER"], followers:[], following:[] },
+    "sena@KUZİLER":       { pass:"KUZİLER", roles:["KUZILER"], followers:[], following:[] },
+    "MR.Selim@KUZİLER":   { pass:"KUZİLER", roles:["KUZILER"], followers:[], following:[] }
+  };
+  for(const k in defaults) if(!DATA.users[k]) DATA.users[k]=defaults[k];
+  if(!DATA.posts) DATA.posts=[];
+  saveData();
+})();
+function loadData(){ try{return JSON.parse(localStorage.getItem("KZMedia.data")||"{}");}catch(e){return{users:{},posts:[]};}}
+function saveData(){ localStorage.setItem("KZMedia.data", JSON.stringify(DATA)); }
+function setMe(u){
+  window._ME=u; $('meName').textContent=u||"—";
+  $('meFollowers').textContent=(u&&DATA.users[u])?DATA.users[u].followers.length:0;
+  $('authBox').style.display=u?"none":"block";
+  $('composeBox').style.display=u?"block":"none";
+  loadFeed();
+}
+$('btnRegister').onclick=()=>{ const n=$('txtUser').value.trim(),p=$('txtPass').value;
+  if(!n||!p) return alert("Boş olamaz"); if(DATA.users[n]) return alert("Zaten var");
+  DATA.users[n]={pass:p,roles:[],followers:[],following:[]}; saveData(); alert("Kayıt tamam"); };
+$('btnLogin').onclick=()=>{ const n=$('txtUser').value.trim(),p=$('txtPass').value;
+  const u=DATA.users[n]; if(!u||u.pass!==p) return alert("Hatalı giriş"); setMe(n); };
+$('btnPost').onclick=()=>{ if(!_ME) return alert("Giriş yap");
+  const t=$('postText').value.trim(); if(!t) return;
+  const post={id:Date.now().toString(36),author:_ME,text:t,likes:[],createdAt:Date.now()};
+  DATA.posts.push(post); saveData(); $('postText').value=""; loadFeed(); };
+function loadFeed(){
+  const feed=$('feed'); feed.innerHTML="";
+  const list=DATA.posts.slice().sort((a,b)=>b.createdAt-a.createdAt);
+  $('empty').style.display=list.length? "none":"block";
+  for(const p of list){
+    const div=document.createElement("div"); div.className="post";
+    const liked=_ME && p.likes.includes(_ME);
+    div.innerHTML =
+      '<div class="meta"><div>'+p.author+'</div><div class="small">'+new Date(p.createdAt).toLocaleString()+'</div></div>'+
+      '<div>'+p.text+'</div>'+
+      '<div class="row" style="margin-top:8px">'+
+        '<button class="btn-like">'+(liked?'💔 Unlike':'❤ Like')+' ('+p.likes.length+')</button>'+
+        '<button class="btn-follow">Takip</button>'+
+      '</div>';
+    div.querySelector(".btn-like").onclick=()=>{ if(!_ME) return alert("Giriş yap");
+      if(p.likes.includes(_ME)) p.likes=p.likes.filter(u=>u!==_ME); else p.likes.push(_ME);
+      saveData(); loadFeed(); };
+    div.querySelector(".btn-follow").onclick=()=>{ if(!_ME) return alert("Giriş yap");
+      const me=DATA.users[_ME], target=DATA.users[p.author]; if(!target||_ME===p.author) return;
+      if(me.following.includes(p.author)){
+        me.following=me.following.filter(u=>u!==p.author);
+        target.followers=target.followers.filter(u=>u!==_ME);
+      } else {
+        me.following.push(p.author);
+        target.followers.push(_ME);
+      }
+      saveData(); setMe(_ME); loadFeed();
+    };
+    feed.appendChild(div);
+  }
+}
+setMe(null);
+
+/* =============== KZAsistan (WebLLM loader + AUTO MODEL PICK) =============== */
+const gpuInfo = $('gpuInfo');
+const diag = $('diag');
+const modelName = $('modelName');
+const loadBtn = $('loadModel');
+const chatBox = $('chatBox');
+const chat = $('chat');
+const q = $('q');
+const send = $('send');
+const bottomBar = $('bottomBar');
+const bottomLabel = $('bottomLabel');
+
+const isSecure = location.protocol === "https:" || ["localhost","127.0.0.1"].includes(location.hostname);
+gpuInfo.textContent = isSecure ? "• güvenli bağlam" : "• HTTPS/localhost gerek";
+
+function log(msg){ const d=document.createElement('div'); d.textContent=msg; diag.appendChild(d); }
+function setProgress(pct, text){
+  const v = Math.max(0, Math.min(100, Math.round((pct||0)*100)));
+  bottomBar.style.width = v+"%";
+  bottomLabel.textContent = "Yükleme: %"+v;
+  if(text) log("✅ "+text);
+}
+
+let CreateMLCEngine = null;
+let prebuilt = null;
+
+async function loadWebLLM(){
+  try {
+    // 1) ESM
+    const mod = await import("https://esm.run/@mlc-ai/web-llm");
+    if (mod?.CreateMLCEngine){ CreateMLCEngine = mod.CreateMLCEngine; prebuilt = mod?.prebuiltAppConfig; log("✅ WebLLM (ESM)"); return; }
+    throw new Error("ESM export yok");
+  } catch (e) {
+    log("ℹ️ ESM olmadı, UMD deneniyor… ("+e.message+")");
+    // 2) UMD fallback
+    await new Promise((resolve, reject)=>{
+      const s=document.createElement("script");
+      s.src="https://unpkg.com/@mlc-ai/web-llm";
+      s.async=true;
+      s.onload=()=>resolve();
+      s.onerror=()=>reject(new Error("UMD yüklenemedi"));
+      document.head.appendChild(s);
+    });
+    if (window.webllm?.CreateMLCEngine){ 
+      CreateMLCEngine = window.webllm.CreateMLCEngine; 
+      prebuilt = window.webllm?.prebuiltAppConfig;
+      log("✅ WebLLM (UMD)");
+      return; 
+    }
+    throw new Error("UMD export yok");
+  }
+}
+
+/* --- Otomatik Model Seçimi ---
+   1) prebuilt.model_list varsa ordan al.
+   2) Tercih sırasına göre uygun olanı seç (varsa).
+   3) Hiçbiri yoksa listeden ilkini al.
+*/
+function pickModelId(){
+  const list = (prebuilt?.model_list || []).map(m=>m.model_id);
+  if (!list.length){ throw new Error("Model listesi boş"); }
+  const preferredOrder = [
+    // küçük ve yaygın olanlar:
+    "RedPajama-INCITE-Chat-3B-v1-q4f16_1",
+    "Llama-3-8B-Instruct-q4f16_1",
+    "Llama-3-8B-Instruct-q4f32_1",
+    "Llama-3.2-1B-Instruct-q4f32_1",
+    "Phi-2-q4f16_1",
+    "TinyLlama-1.1B-Chat-v1.0-q4f16_1",
+  ];
+  for (const id of preferredOrder){
+    if (list.includes(id)) return id;
+  }
+  // tercihler yoksa ilkini kullan
+  return list[0];
+}
+
+const BAD_WORDS = ["salak","aptal","mal","gerizekalı","şerefsiz","orospu","piç","lanet"];
+const clean = s => BAD_WORDS.reduce((t,w)=>t.replace(new RegExp("\\b"+w+"\\b","gi"), m=>"★".repeat(m.length)), s);
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+function addBubble(role, text, asCode=false){
+  const wrap=document.createElement("div"); wrap.className="bubble";
+  wrap.innerHTML='<div class="role">'+role+'</div><div>'+(asCode?('<pre class="code"><code>'+esc(text)+'</code></pre>'):esc(text))+'</div>';
+  chat.appendChild(wrap); chat.scrollTop=chat.scrollHeight;
+}
+
+let engine=null, history=[];
+loadBtn.addEventListener("click", async ()=>{
+  if(!isSecure){ log("❌ HTTPS veya localhost üzerinden aç."); return; }
+  if(!("gpu" in navigator)){ log("❌ WebGPU yok (Chrome/Edge 113+)."); return; }
+
+  loadBtn.disabled = true; setProgress(0, "WebLLM yükleniyor…");
+  try{
+    await loadWebLLM();
+    const modelId = pickModelId();
+    modelName.textContent = "• Model: "+modelId;
+    setProgress(0.01, "Model başlatılıyor…");
+    engine = await CreateMLCEngine(modelId, { initProgressCallback: (r)=> setProgress(r.progress ?? 0, r.text || "") });
+    history=[{role:"system",content:"You are KZAsistan, helpful Turkish assistant. Avoid profanity. If user asks code, return concise and correct code blocks."}];
+    chatBox.style.display="block";
+    addBubble("KZAsistan","Hazırım! Kod yazabilir, ödevlerine yardım edebilirim. Ne istersin?");
+  }catch(e){
+    log("❌ Model/engine hata: "+e.message);
+    loadBtn.disabled=false;
+  }
+});
+
+async function ask(){
+  const text=(q.value||"").trim(); if(!text) return;
+  q.value=""; addBubble(window._ME||"misafir", clean(text));
+  if(!engine){ addBubble("KZAsistan","Önce modeli yükle."); return; }
+  const wantsCode = /kod|code|python|js|javascript|c\+\+|java|html|css|sql|regex|örnek/i.test(text);
+  try{
+    const resp = await engine.chat.completions.create({
+      messages: [...history, {role:"user", content: clean(text)}],
+      temperature: 0.7, top_p: 0.95
+    });
+    const out = clean(resp?.choices?.[0]?.message?.content || "");
+    history.push({role:"user", content: clean(text)});
+    history.push({role:"assistant", content: out});
+    addBubble("KZAsistan", out, wantsCode);
+  }catch(e){
+    addBubble("KZAsistan","(hata) "+e.message);
+  }
+}
+send.addEventListener("click", ask);
+q.addEventListener("keydown", e=>{ if(e.key==="Enter") ask(); });
+</script>
+</body>
+</html>
+
